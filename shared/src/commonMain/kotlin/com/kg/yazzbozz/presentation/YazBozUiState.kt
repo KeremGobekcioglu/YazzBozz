@@ -1,5 +1,10 @@
 package com.kg.yazzbozz.presentation
 
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
+
 data class YazBozUiState(
     val team1Name: String = "",
     val team2Name: String = "",
@@ -8,12 +13,14 @@ data class YazBozUiState(
     val totalScoreTeam1: Int = 0,
     val totalScoreTeam2: Int = 0,
     val previousScore: Int? = null,
-    val player1FinishCount: Int = 0,
-    val player2FinishCount: Int = 0,
-    val player3FinishCount: Int = 0,
-    val player4FinishCount: Int = 0,
-    val player1OpeningCount: Int = 0,
-    val player2OpeningCount: Int = 0,
-    val player3OpeningCount: Int = 0,
-    val player4OpeningCount: Int = 0,
+    val finishCounts: ImmutableMap<Int, Int> = persistentMapOf(), // player number (1-4) to finish count
+    val openingCounts: ImmutableMap<Int, Int> = persistentMapOf(), // player number (1-4) to opening count
+    val hands: ImmutableList<Hand> = persistentListOf()
+)
+
+data class Hand(
+    val scoreTeam1: Int = 0,
+    val scoreTeam2: Int = 0,
+    val whoFinished: Int = 0, // team 1 is 1,2 ; team 2 is 3,4
+    val whoOpened: ImmutableList<Int> = persistentListOf()
 )
