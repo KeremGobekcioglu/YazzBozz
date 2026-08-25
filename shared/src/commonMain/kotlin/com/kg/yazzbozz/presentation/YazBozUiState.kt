@@ -8,6 +8,7 @@ import kotlinx.collections.immutable.persistentMapOf
 data class YazBozUiState(
     val team1Name: String = "",
     val team2Name: String = "",
+    val playerNames: ImmutableList<String> = persistentListOf(),
     val penaltiesTeam1: Int = 0,
     val penaltiesTeam2: Int = 0,
     val totalScoreTeam1: Int = 0,
