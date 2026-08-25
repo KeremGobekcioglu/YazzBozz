@@ -21,6 +21,8 @@ data class YazBozUiState(
 data class Hand(
     val scoreTeam1: Int = 0,
     val scoreTeam2: Int = 0,
-    val whoFinished: Int = 0, // team 1 is 1,2 ; team 2 is 3,4
-    val whoOpened: ImmutableList<Int> = persistentListOf()
+    val whoFinished: Char? = null, // team 1 is 1,2 ; team 2 is 3,4
+    val whichTeamFinished: Int? = null,
+    val whoOpenedTeam1: ImmutableList<Char> = persistentListOf(),
+    val whoOpenedTeam2: ImmutableList<Char> = persistentListOf()
 )
