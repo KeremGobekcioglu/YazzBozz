@@ -1,4 +1,4 @@
-package com.kg.yazzbozz.presentation
+package com.kg.yazzbozz.presentation.yazboz
 
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap

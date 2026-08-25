@@ -1,4 +1,4 @@
-package com.kg.yazzbozz.presentation
+package com.kg.yazzbozz.presentation.yazboz
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
