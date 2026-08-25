@@ -13,9 +13,10 @@ data class YazBozUiState(
     val penaltiesTeam2: Int = 0,
     val totalScoreTeam1: Int = 0,
     val totalScoreTeam2: Int = 0,
+    val isFinished: Boolean = false,
     val previousScore: Int? = null,
-    val finishCounts: ImmutableMap<Int, Int> = persistentMapOf(), // player number (1-4) to finish count
-    val openingCounts: ImmutableMap<Int, Int> = persistentMapOf(), // player number (1-4) to opening count
+    val finishCounts: ImmutableMap<String, Int> = persistentMapOf(), // player name to finish count
+    val openingCounts: ImmutableMap<String, Int> = persistentMapOf(), // player name to opening count
     val hands: ImmutableList<Hand> = persistentListOf()
 )
 

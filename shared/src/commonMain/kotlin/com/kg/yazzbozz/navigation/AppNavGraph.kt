@@ -56,7 +56,7 @@ fun AppNavGraph(
             YazBozScreen(
                 uiState = yazBozViewModel.uiState,
                 onConfirmHand = yazBozViewModel::onConfirmHand,
-                onFinishClick = {},
+                onFinishClick = yazBozViewModel::onFinishClicked,
                 onPenaltyClick = yazBozViewModel::onPenaltyClick,
             )
         }

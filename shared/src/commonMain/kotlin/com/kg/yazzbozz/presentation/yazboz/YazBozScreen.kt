@@ -27,8 +27,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -58,152 +60,236 @@ fun YazBozScreen(
     // Local, throwaway UI state — nothing here reaches the ViewModel until "Ekle"
     // is tapped inside the panel. Closing it any other way just discards the draft.
     var draftHand: Hand? by remember { mutableStateOf(null) }
+    var showFinishConfirmation by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier.fillMaxSize().background(Color.White).statusBarsPadding().navigationBarsPadding()
     ) {
-        Column(Modifier.fillMaxSize()) {
-            Row(
-                Modifier.fillMaxWidth().padding(bottom = 16.dp)
-            ) {
-                Text(
-                    uiState.team1Name,
-                    Modifier.weight(1f),
-                    color = Color.Black,
-                    fontSize = ScreenTextSize,
-                    textAlign = TextAlign.Center,
-                )
-                Text(
-                    uiState.team2Name,
-                    Modifier.weight(1f),
-                    color = Color.Black,
-                    fontSize = ScreenTextSize,
-                    textAlign = TextAlign.Center,
-                )
-            }
-
-            LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                items(uiState.hands) { hand ->
-                    HandRow(
-                        scoreOfTeam1 = hand.scoreTeam1,
-                        scoreOfTeam2 = hand.scoreTeam2,
-                        whichTeamFinished = hand.whichTeamFinished ?: 0,
-                        whoFinished = hand.whoFinished,
-                        team1Openers = hand.whoOpenedTeam1,
-                        team2Openers = hand.whoOpenedTeam2
+        if (uiState.isFinished) {
+            ResultsContent(uiState = uiState)
+        } else {
+            Column(Modifier.fillMaxSize()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                ) {
+                    Text(
+                        uiState.team1Name,
+                        Modifier.weight(1f),
+                        color = Color.Black,
+                        fontSize = ScreenTextSize,
+                        textAlign = TextAlign.Center,
                     )
-                    HorizontalDivider()
+                    Text(
+                        uiState.team2Name,
+                        Modifier.weight(1f),
+                        color = Color.Black,
+                        fontSize = ScreenTextSize,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+
+                LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    items(uiState.hands) { hand ->
+                        HandRow(
+                            scoreOfTeam1 = hand.scoreTeam1,
+                            scoreOfTeam2 = hand.scoreTeam2,
+                            whichTeamFinished = hand.whichTeamFinished ?: 0,
+                            whoFinished = hand.whoFinished,
+                            team1Openers = hand.whoOpenedTeam1,
+                            team2Openers = hand.whoOpenedTeam2
+                        )
+                        HorizontalDivider()
+                    }
+                }
+
+                Row(Modifier.fillMaxWidth().padding(bottom = 16.dp, top = 16.dp)) {
+                    Text(
+                        "X".repeat(uiState.penaltiesTeam1),
+                        Modifier.weight(1f),
+                        color = Color.Black,
+                        fontSize = ScreenTextSize,
+                        textAlign = TextAlign.Start,
+                    )
+                    Text(
+                        "X".repeat(uiState.penaltiesTeam2),
+                        Modifier.weight(1f),
+                        color = Color.Black,
+                        fontSize = ScreenTextSize,
+                        textAlign = TextAlign.Start,
+                    )
+                }
+
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                ) {
+                    Button(
+                        onClick = { onPenaltyClick(1) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Blue,
+                            contentColor = Color.White,
+                        ),
+                        modifier = Modifier.weight(1f).padding(end = 8.dp),
+                    ) {
+                        Text("Ceza Ekle", fontSize = ScreenTextSize)
+                    }
+                    Button(
+                        onClick = { onPenaltyClick(2) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Blue,
+                            contentColor = Color.White,
+                        ),
+                        modifier = Modifier.weight(1f).padding(start = 8.dp),
+                    ) {
+                        Text("Ceza Ekle", fontSize = ScreenTextSize)
+                    }
+                }
+
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Button(
+                        onClick = { draftHand = Hand() },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFFFD700),
+                            contentColor = Color.Black,
+                        ),
+                        modifier = Modifier.weight(1f).padding(end = 8.dp),
+                    ) {
+                        Text("El Ekle", fontSize = ScreenTextSize)
+                    }
+                    Button(
+                        onClick = { showFinishConfirmation = true },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Red,
+                            contentColor = Color.White,
+                        ),
+                        modifier = Modifier.weight(1f).padding(start = 8.dp),
+                    ) {
+                        Text("Eli Bitir", fontSize = ScreenTextSize)
+                    }
                 }
             }
 
-            Row(Modifier.fillMaxWidth().padding(bottom = 16.dp, top = 16.dp)) {
-                Text(
-                    "X".repeat(uiState.penaltiesTeam1),
-                    Modifier.weight(1f),
-                    color = Color.Black,
-                    fontSize = ScreenTextSize,
-                    textAlign = TextAlign.Start,
-                )
-                Text(
-                    "X".repeat(uiState.penaltiesTeam2),
-                    Modifier.weight(1f),
-                    color = Color.Black,
-                    fontSize = ScreenTextSize,
-                    textAlign = TextAlign.Start,
-                )
-            }
+            VerticalDivider(Modifier.fillMaxHeight().align(Alignment.Center))
 
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
-            ) {
-                Button(
-                    onClick = { onPenaltyClick(1) },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Blue,
-                        contentColor = Color.White,
-                    ),
-                    modifier = Modifier.weight(1f).padding(end = 8.dp),
-                ) {
-                    Text("Ceza Ekle", fontSize = ScreenTextSize)
-                }
-                Button(
-                    onClick = { onPenaltyClick(2) },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Blue,
-                        contentColor = Color.White,
-                    ),
-                    modifier = Modifier.weight(1f).padding(start = 8.dp),
-                ) {
-                    Text("Ceza Ekle", fontSize = ScreenTextSize)
-                }
-            }
-
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
-            ) {
-                Button(
-                    onClick = { draftHand = Hand() },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFFD700),
-                        contentColor = Color.Black,
-                    ),
-                    modifier = Modifier.weight(1f).padding(end = 8.dp),
-                ) {
-                    Text("El Ekle", fontSize = ScreenTextSize)
-                }
-                Button(
-                    onClick = onFinishClick,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Red,
-                        contentColor = Color.White,
-                    ),
-                    modifier = Modifier.weight(1f).padding(start = 8.dp),
-                ) {
-                    Text("Bitir", fontSize = ScreenTextSize)
-                }
-            }
-        }
-
-        VerticalDivider(Modifier.fillMaxHeight().align(Alignment.Center))
-
-        // Scrim + centered panel. Sits above everything else in this Box because
-        // it's declared last — later children in a Box draw on top.
-        val currentDraft = draftHand
-        if (currentDraft != null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.5f))
-                    .clickable(
-                        indication = null,
-                        interactionSource = remember { MutableInteractionSource() },
-                    ) { draftHand = null }, // tap outside the card to dismiss
-                contentAlignment = Alignment.Center,
-            ) {
+            // Scrim + centered panel. Sits above everything else in this Box because
+            // it's declared last — later children in a Box draw on top.
+            val currentDraft = draftHand
+            if (currentDraft != null) {
                 Box(
                     modifier = Modifier
-                        .padding(24.dp)
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.5f))
                         .clickable(
                             indication = null,
                             interactionSource = remember { MutableInteractionSource() },
-                        ) { /* absorb clicks so tapping the card doesn't dismiss it */ },
+                        ) { draftHand = null }, // tap outside the card to dismiss
+                    contentAlignment = Alignment.Center,
                 ) {
-                    AddHandPanel(
-                        draftHand = currentDraft,
-                        playerNames = uiState.playerNames,
-                        onDraftChanged = { draftHand = it },
-                        onConfirm = {
-                            onConfirmHand(currentDraft)
-                            draftHand = null
-                        },
-                        onDismiss = { draftHand = null },
-                    )
+                    Box(
+                        modifier = Modifier
+                            .padding(24.dp)
+                            .clickable(
+                                indication = null,
+                                interactionSource = remember { MutableInteractionSource() },
+                            ) { /* absorb clicks so tapping the card doesn't dismiss it */ },
+                    ) {
+                        AddHandPanel(
+                            draftHand = currentDraft,
+                            playerNames = uiState.playerNames,
+                            onDraftChanged = { draftHand = it },
+                            onConfirm = {
+                                onConfirmHand(currentDraft)
+                                draftHand = null
+                            },
+                            onDismiss = { draftHand = null },
+                        )
+                    }
                 }
             }
         }
     }
+
+    if (showFinishConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showFinishConfirmation = false },
+            title = { Text("Eli bitir?") },
+            text = { Text("Eli bitirmek istediğinize emin misiniz?") },
+            dismissButton = {
+                TextButton(onClick = { showFinishConfirmation = false }) {
+                    Text("Vazgeç")
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showFinishConfirmation = false
+                        onFinishClick()
+                    },
+                ) {
+                    Text("Evet")
+                }
+            },
+        )
+    }
 }
 
+@Composable
+private fun ResultsContent(uiState: YazBozUiState) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+    ) {
+        Text("Sonuçlar", color = Color.Black, fontSize = 24.sp)
+        Spacer(Modifier.height(16.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(uiState.team1Name, color = Color.Black, fontSize = 18.sp)
+            Text(uiState.totalScoreTeam1.toString(), color = Color.Black, fontSize = 18.sp)
+        }
+        Text(
+            "Ceza: ${uiState.penaltiesTeam1} x 100 = ${uiState.penaltiesTeam1 * 100}",
+            color = Color.Gray,
+            fontSize = 13.sp,
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(uiState.team2Name, color = Color.Black, fontSize = 18.sp)
+            Text(uiState.totalScoreTeam2.toString(), color = Color.Black, fontSize = 18.sp)
+        }
+        Text(
+            "Ceza: ${uiState.penaltiesTeam2} x 100 = ${uiState.penaltiesTeam2 * 100}",
+            color = Color.Gray,
+            fontSize = 13.sp,
+        )
+        Spacer(Modifier.height(16.dp))
+        HorizontalDivider()
+        Spacer(Modifier.height(12.dp))
+        Row(Modifier.fillMaxWidth()) {
+            Text("Oyuncu", modifier = Modifier.weight(2f), color = Color.Black)
+            Text("Açış", modifier = Modifier.weight(1f), color = Color.Black, textAlign = TextAlign.Center)
+            Text("Bitiş", modifier = Modifier.weight(1f), color = Color.Black, textAlign = TextAlign.Center)
+        }
+        Spacer(Modifier.height(8.dp))
+        uiState.playerNames.forEach { playerName ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                Text(playerName, modifier = Modifier.weight(2f), color = Color.Black)
+                Text(
+                    (uiState.openingCounts[playerName] ?: 0).toString(),
+                    modifier = Modifier.weight(1f),
+                    color = Color.Black,
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    (uiState.finishCounts[playerName] ?: 0).toString(),
+                    modifier = Modifier.weight(1f),
+                    color = Color.Black,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+    }
+}
 @Composable
 fun HandRow(
     scoreOfTeam1: Int,
