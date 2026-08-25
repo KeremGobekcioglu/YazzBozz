@@ -2,6 +2,8 @@ package com.kg.yazzbozz.presentation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,30 +22,43 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.toImmutableList
 
 private val ScreenTextSize = 21.sp
 
 @Composable
 fun YazBozScreen(
     uiState: YazBozUiState,
-    onAddResultClick: () -> Unit,
+    onConfirmHand: (Hand) -> Unit,
     onFinishClick: () -> Unit,
     onPenaltyClick: (team: Int) -> Unit,
 ) {
+    // Local, throwaway UI state — nothing here reaches the ViewModel until "Ekle"
+    // is tapped inside the panel. Closing it any other way just discards the draft.
+    var draftHand: Hand? by remember { mutableStateOf(null) }
+
     Box(
         modifier = Modifier.fillMaxSize().background(Color.White).statusBarsPadding().navigationBarsPadding()
     ) {
@@ -127,7 +142,7 @@ fun YazBozScreen(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 Button(
-                    onClick = onAddResultClick,
+                    onClick = { draftHand = Hand() },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFFFFD700),
                         contentColor = Color.Black,
@@ -150,6 +165,42 @@ fun YazBozScreen(
         }
 
         VerticalDivider(Modifier.fillMaxHeight().align(Alignment.Center))
+
+        // Scrim + centered panel. Sits above everything else in this Box because
+        // it's declared last — later children in a Box draw on top.
+        val currentDraft = draftHand
+        if (currentDraft != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.5f))
+                    .clickable(
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() },
+                    ) { draftHand = null }, // tap outside the card to dismiss
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .padding(24.dp)
+                        .clickable(
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() },
+                        ) { /* absorb clicks so tapping the card doesn't dismiss it */ },
+                ) {
+                    AddHandPanel(
+                        draftHand = currentDraft,
+                        playerNames = uiState.playerNames,
+                        onDraftChanged = { draftHand = it },
+                        onConfirm = {
+                            onConfirmHand(currentDraft)
+                            draftHand = null
+                        },
+                        onDismiss = { draftHand = null },
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -221,5 +272,158 @@ private fun HandCell(
                 Text(text = initial.toString(), color = Color.Black, fontSize = ScreenTextSize)
             }
         }
+    }
+}
+
+// ---------------------------------------------------------------- add-hand panel
+
+/**
+ * Inline result-entry panel — same page as YazBozScreen, no sheet, no navigation.
+ * [draftHand] is a plain [Hand] being filled in locally in YazBozScreen; every tap
+ * here just produces an updated copy via [onDraftChanged]. Nothing reaches the
+ * ViewModel until the screen's own onConfirm fires.
+ *
+ * Team split assumes playerNames[0],[1] = team1, playerNames[2],[3] = team2
+ * (indices 0-3, so player id = index + 1).
+ */
+@Composable
+private fun AddHandPanel(
+    draftHand: Hand,
+    playerNames: ImmutableList<String>,
+    onDraftChanged: (Hand) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val team1Locked = draftHand.whichTeamFinished == 1
+    val team2Locked = draftHand.whichTeamFinished == 2
+
+    Column(
+        modifier = Modifier
+            .background(Color.White, RoundedCornerShape(12.dp))
+            .border(1.dp, Color.LightGray, RoundedCornerShape(12.dp))
+            .padding(16.dp),
+    ) {
+        Text("El sonucu", fontSize = 16.sp, color = Color.Black)
+        Spacer(Modifier.height(12.dp))
+
+        Text("Kim bitirdi?", fontSize = 12.sp, color = Color.Gray)
+        Spacer(Modifier.height(6.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            playerNames.forEachIndexed { index, name ->
+                val id = index + 1
+                val team = if (id in 1..2) 1 else 2
+                val initial = name.firstOrNull() ?: return@forEachIndexed
+                NameChip(
+                    label = name,
+                    selected = draftHand.whoFinished == initial,
+                    onClick = {
+                        // Tap the same finisher again to clear it.
+                        onDraftChanged(
+                            if (draftHand.whoFinished == initial) {
+                                draftHand.copy(whoFinished = null, whichTeamFinished = null)
+                            } else {
+                                draftHand.copy(whoFinished = initial, whichTeamFinished = team)
+                            },
+                        )
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        Text("Elini kim açtı?", fontSize = 12.sp, color = Color.Gray)
+        Spacer(Modifier.height(6.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            playerNames.forEachIndexed { index, name ->
+                val id = index + 1
+                val team = if (id in 1..2) 1 else 2
+                val initial = name.firstOrNull() ?: return@forEachIndexed
+                val opened = initial in draftHand.whoOpenedTeam1 || initial in draftHand.whoOpenedTeam2
+                NameChip(
+                    label = name,
+                    selected = opened,
+                    onClick = {
+                        onDraftChanged(
+                            if (team == 1) {
+                                val updated = if (opened) {
+                                    draftHand.whoOpenedTeam1.filterNot { it == initial }
+                                } else {
+                                    draftHand.whoOpenedTeam1 + initial
+                                }
+                                draftHand.copy(whoOpenedTeam1 = updated.toImmutableList())
+                            } else {
+                                val updated = if (opened) {
+                                    draftHand.whoOpenedTeam2.filterNot { it == initial }
+                                } else {
+                                    draftHand.whoOpenedTeam2 + initial
+                                }
+                                draftHand.copy(whoOpenedTeam2 = updated.toImmutableList())
+                            },
+                        )
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedTextField(
+                value = if (team1Locked) "0" else draftHand.scoreTeam1.takeIf { it != 0 }?.toString().orEmpty(),
+                onValueChange = { text ->
+                    onDraftChanged(draftHand.copy(scoreTeam1 = text.toIntOrNull() ?: 0))
+                },
+                enabled = !team1Locked,
+                label = { Text("1. takım") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.weight(1f),
+            )
+            OutlinedTextField(
+                value = if (team2Locked) "0" else draftHand.scoreTeam2.takeIf { it != 0 }?.toString().orEmpty(),
+                onValueChange = { text ->
+                    onDraftChanged(draftHand.copy(scoreTeam2 = text.toIntOrNull() ?: 0))
+                },
+                enabled = !team2Locked,
+                label = { Text("2. takım") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.weight(1f),
+            )
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(onClick = onDismiss, modifier = Modifier.weight(1f)) {
+                Text("Vazgeç")
+            }
+            Button(onClick = onConfirm, modifier = Modifier.weight(1f)) {
+                Text("Ekle")
+            }
+        }
+    }
+}
+
+@Composable
+private fun NameChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val borderColor = if (selected) Color.Black else Color.LightGray
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(6.dp))
+            .border(1.5.dp, borderColor, RoundedCornerShape(6.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text = label, color = Color.Black, fontSize = 13.sp)
     }
 }

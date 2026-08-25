@@ -32,6 +32,7 @@ fun App() {
             team1Name = "Kerem & Ali",
             team2Name = "Ayşe & Fatma",
             penaltiesTeam1 = 14,
+            playerNames = persistentListOf("Kerem","emre","mete","sabun"),
             penaltiesTeam2 = 18,
             totalScoreTeam1 = 145,
             totalScoreTeam2 = 132,
@@ -70,7 +71,7 @@ fun App() {
             )
         )
         YazBozScreen(
-            onAddResultClick = {},
+            onConfirmHand = {},
             onFinishClick = {},
             onPenaltyClick =  {},
             uiState = sampleYazBozUiState
