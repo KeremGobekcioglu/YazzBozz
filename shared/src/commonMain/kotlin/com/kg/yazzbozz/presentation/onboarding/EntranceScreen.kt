@@ -19,6 +19,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
@@ -29,28 +33,33 @@ import androidx.compose.ui.unit.sp
 private val TitleTextSize = 22.sp
 private val LabelTextSize = 14.sp
 
-/**
- * Entrance screen. Collects team1Name, team2Name, and two player names per team.
- * Stateless — every field is a value + onChange lambda, same pattern as YazBozScreen.
- * [canStart] is computed by the caller (ViewModel) and just gates the button here.
- */
+data class EntranceOnboardingData(
+    val team1Name: String,
+    val team2Name: String,
+    val player1Name: String,
+    val player2Name: String,
+    val player3Name: String,
+    val player4Name: String,
+)
+
 @Composable
 fun EntranceScreen(
-    team1Name: String,
-    team2Name: String,
-    player1Name: String,
-    player2Name: String,
-    player3Name: String,
-    player4Name: String,
-    canStart: Boolean,
-    onTeam1NameChanged: (String) -> Unit,
-    onTeam2NameChanged: (String) -> Unit,
-    onPlayer1NameChanged: (String) -> Unit,
-    onPlayer2NameChanged: (String) -> Unit,
-    onPlayer3NameChanged: (String) -> Unit,
-    onPlayer4NameChanged: (String) -> Unit,
-    onStartClick: () -> Unit,
+    onStartClick: (EntranceOnboardingData) -> Unit,
 ) {
+    var team1Name by rememberSaveable { mutableStateOf("") }
+    var team2Name by rememberSaveable { mutableStateOf("") }
+    var player1Name by rememberSaveable { mutableStateOf("") }
+    var player2Name by rememberSaveable { mutableStateOf("") }
+    var player3Name by rememberSaveable { mutableStateOf("") }
+    var player4Name by rememberSaveable { mutableStateOf("") }
+
+    val canStart = team1Name.isNotBlank() &&
+        team2Name.isNotBlank() &&
+        player1Name.isNotBlank() &&
+        player2Name.isNotBlank() &&
+        player3Name.isNotBlank() &&
+        player4Name.isNotBlank()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -67,11 +76,11 @@ fun EntranceScreen(
         TeamSection(
             teamLabel = "1. Takım",
             teamName = team1Name,
-            onTeamNameChanged = onTeam1NameChanged,
+            onTeamNameChanged = { team1Name = it },
             player1Name = player1Name,
-            onPlayer1NameChanged = onPlayer1NameChanged,
+            onPlayer1NameChanged = { player1Name = it },
             player2Name = player2Name,
-            onPlayer2NameChanged = onPlayer2NameChanged,
+            onPlayer2NameChanged = { player2Name = it },
         )
 
         Spacer(Modifier.height(24.dp))
@@ -79,18 +88,29 @@ fun EntranceScreen(
         TeamSection(
             teamLabel = "2. Takım",
             teamName = team2Name,
-            onTeamNameChanged = onTeam2NameChanged,
+            onTeamNameChanged = { team2Name = it },
             player1Name = player3Name,
-            onPlayer1NameChanged = onPlayer3NameChanged,
+            onPlayer1NameChanged = { player3Name = it },
             player2Name = player4Name,
-            onPlayer2NameChanged = onPlayer4NameChanged,
+            onPlayer2NameChanged = { player4Name = it },
             lastFieldImeAction = ImeAction.Done,
         )
 
         Spacer(Modifier.height(32.dp))
 
         Button(
-            onClick = onStartClick,
+            onClick = {
+                onStartClick(
+                    EntranceOnboardingData(
+                        team1Name = team1Name.trim(),
+                        team2Name = team2Name.trim(),
+                        player1Name = player1Name.trim(),
+                        player2Name = player2Name.trim(),
+                        player3Name = player3Name.trim(),
+                        player4Name = player4Name.trim(),
+                    ),
+                )
+            },
             enabled = canStart,
             modifier = Modifier.fillMaxWidth(),
         ) {
