@@ -54,6 +54,14 @@ class YazzBozzViewModel : ViewModel() {
         recalculateFromHands(uiState.hands, isFinished = true)
     }
 
+    fun onNewGameClicked() {
+        uiState = YazBozUiState(
+            team1Name = uiState.team1Name,
+            team2Name = uiState.team2Name,
+            playerNames = uiState.playerNames,
+        )
+    }
+
     private fun recalculateFromHands(hands: List<Hand>, isFinished: Boolean) {
         val totalScoreTeam1 = hands.sumOf { it.scoreTeam1 } + (uiState.penaltiesTeam1 * PenaltyPoint)
         val totalScoreTeam2 = hands.sumOf { it.scoreTeam2 } + (uiState.penaltiesTeam2 * PenaltyPoint)

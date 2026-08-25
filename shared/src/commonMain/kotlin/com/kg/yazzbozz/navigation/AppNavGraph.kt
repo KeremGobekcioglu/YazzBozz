@@ -58,6 +58,7 @@ fun AppNavGraph(
                 onConfirmHand = yazBozViewModel::onConfirmHand,
                 onFinishClick = yazBozViewModel::onFinishClicked,
                 onPenaltyClick = yazBozViewModel::onPenaltyClick,
+                onNewGameClick = yazBozViewModel::onNewGameClicked,
             )
         }
     }
