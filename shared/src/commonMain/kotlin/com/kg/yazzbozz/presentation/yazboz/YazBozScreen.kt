@@ -21,7 +21,9 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
@@ -253,42 +255,54 @@ fun YazBozScreen(
 
 @Composable
 private fun ResultsContent(uiState: YazBozUiState) {
-    Column(
+    LazyColumn(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
     ) {
-        Text("Sonuçlar", color = Color.Black, fontSize = 24.sp)
-        Spacer(Modifier.height(16.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(uiState.team1Name, color = Color.Black, fontSize = 18.sp)
-            Text(uiState.totalScoreTeam1.toString(), color = Color.Black, fontSize = 18.sp)
+        item {
+            Text("Sonuçlar", color = Color.Black, fontSize = 24.sp)
+            Spacer(Modifier.height(16.dp))
         }
-        Text(
-            "Ceza: ${uiState.penaltiesTeam1} x 100 = ${uiState.penaltiesTeam1 * 100}",
-            color = Color.Gray,
-            fontSize = 13.sp,
-        )
-        Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(uiState.team2Name, color = Color.Black, fontSize = 18.sp)
-            Text(uiState.totalScoreTeam2.toString(), color = Color.Black, fontSize = 18.sp)
+
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(uiState.team1Name, color = Color.Black, fontSize = 18.sp)
+                Text(uiState.totalScoreTeam1.toString(), color = Color.Black, fontSize = 18.sp)
+            }
+            Text(
+                "Ceza: ${uiState.penaltiesTeam1} x 100 = ${uiState.penaltiesTeam1 * 100}",
+                color = Color.Gray,
+                fontSize = 13.sp,
+            )
+            Spacer(Modifier.height(8.dp))
         }
-        Text(
-            "Ceza: ${uiState.penaltiesTeam2} x 100 = ${uiState.penaltiesTeam2 * 100}",
-            color = Color.Gray,
-            fontSize = 13.sp,
-        )
-        Spacer(Modifier.height(16.dp))
-        HorizontalDivider()
-        Spacer(Modifier.height(12.dp))
-        Row(Modifier.fillMaxWidth()) {
-            Text("Oyuncu", modifier = Modifier.weight(2f), color = Color.Black)
-            Text("Açış", modifier = Modifier.weight(1f), color = Color.Black, textAlign = TextAlign.Center)
-            Text("Bitiş", modifier = Modifier.weight(1f), color = Color.Black, textAlign = TextAlign.Center)
+
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(uiState.team2Name, color = Color.Black, fontSize = 18.sp)
+                Text(uiState.totalScoreTeam2.toString(), color = Color.Black, fontSize = 18.sp)
+            }
+            Text(
+                "Ceza: ${uiState.penaltiesTeam2} x 100 = ${uiState.penaltiesTeam2 * 100}",
+                color = Color.Gray,
+                fontSize = 13.sp,
+            )
+            Spacer(Modifier.height(16.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(12.dp))
         }
-        Spacer(Modifier.height(8.dp))
-        uiState.playerNames.forEach { playerName ->
+
+        item {
+            Row(Modifier.fillMaxWidth()) {
+                Text("Oyuncu", modifier = Modifier.weight(2f), color = Color.Black)
+                Text("Açış", modifier = Modifier.weight(1f), color = Color.Black, textAlign = TextAlign.Center)
+                Text("Bitiş", modifier = Modifier.weight(1f), color = Color.Black, textAlign = TextAlign.Center)
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+
+        items(uiState.playerNames) { playerName ->
             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                 Text(playerName, modifier = Modifier.weight(2f), color = Color.Black)
                 Text(
