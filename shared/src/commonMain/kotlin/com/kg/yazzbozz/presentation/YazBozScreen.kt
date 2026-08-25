@@ -26,6 +26,13 @@ fun YazBozScreen(
         modifier = Modifier.statusBarsPadding().fillMaxSize().background(Color.White)
     )
     {
+        Row(
+            Modifier.fillMaxWidth().padding(bottom = 16.dp)
+        ) {
+            /**
+             *
+             */
+        }
         LazyColumn {  }
         Row(Modifier.fillMaxWidth().padding(bottom = 32.dp)) {
             /*
@@ -33,7 +40,9 @@ fun YazBozScreen(
             * penaltiesOfTeam1
             * vertical divider
             * penaltiesOfTeam2
+            * add X for a team if team got a penalty.
             * */
+
         }
     }
 }

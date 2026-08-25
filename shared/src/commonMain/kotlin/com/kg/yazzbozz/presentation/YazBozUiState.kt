@@ -1,6 +1,8 @@
 package com.kg.yazzbozz.presentation
 
 data class YazBozUiState(
+    val team1Name: String = "",
+    val team2Name: String = "",
     val penaltiesTeam1: Int = 0,
     val penaltiesTeam2: Int = 0,
     val totalScoreTeam1: Int = 0,
