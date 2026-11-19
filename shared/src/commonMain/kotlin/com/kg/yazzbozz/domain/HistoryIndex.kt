@@ -61,13 +61,8 @@ fun lineups(history: List<GameSummary>): List<Lineup> =
 
 // ---------------------------------------------------------------- filtering & records
 
-/** Lower total wins (scores on a yazboz are points against); a tie has no winner. */
 val GameSummary.winningTeam: Int?
-    get() = when {
-        totalTeam1 < totalTeam2 -> 1
-        totalTeam2 < totalTeam1 -> 2
-        else -> null
-    }
+    get() = winningTeam(totalTeam1, totalTeam2)
 
 sealed interface HistoryFilter {
     val key: String
