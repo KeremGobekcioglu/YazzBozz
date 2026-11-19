@@ -157,57 +157,56 @@ fun YazBozScreen(
             }
 
             if (!readOnly) {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
-                ) {
-                    Button(
-                        onClick = { penaltyTeam = 1 },
-                        enabled = !uiState.isFinished,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.Blue,
-                            contentColor = Color.White,
-                        ),
-                        modifier = Modifier.weight(1f).padding(end = 8.dp),
+                // A finished game can't take more hands or penalties — only a fresh sheet.
+                if (!uiState.isFinished) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
                     ) {
-                        Text("Ceza Ekle", fontSize = ScreenTextSize)
+                        Button(
+                            onClick = { penaltyTeam = 1 },
+                                                        colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.Blue,
+                                contentColor = Color.White,
+                            ),
+                            modifier = Modifier.weight(1f).padding(end = 8.dp),
+                        ) {
+                            Text("Ceza Ekle", fontSize = ScreenTextSize)
+                        }
+                        Button(
+                            onClick = { penaltyTeam = 2 },
+                                                        colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.Blue,
+                                contentColor = Color.White,
+                            ),
+                            modifier = Modifier.weight(1f).padding(start = 8.dp),
+                        ) {
+                            Text("Ceza Ekle", fontSize = ScreenTextSize)
+                        }
                     }
-                    Button(
-                        onClick = { penaltyTeam = 2 },
-                        enabled = !uiState.isFinished,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.Blue,
-                            contentColor = Color.White,
-                        ),
-                        modifier = Modifier.weight(1f).padding(start = 8.dp),
-                    ) {
-                        Text("Ceza Ekle", fontSize = ScreenTextSize)
-                    }
-                }
 
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Button(
-                        onClick = { draftHand = Hand() },
-                        enabled = !uiState.isFinished,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFFFD700),
-                            contentColor = Color.Black,
-                        ),
-                        modifier = Modifier.weight(1f).padding(end = 8.dp),
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
-                        Text("El Ekle", fontSize = ScreenTextSize)
-                    }
-                    Button(
-                        onClick = { showFinishConfirmation = true },
-                        enabled = !uiState.isFinished,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.Red,
-                            contentColor = Color.White,
-                        ),
-                        modifier = Modifier.weight(1f).padding(start = 8.dp),
-                    ) {
-                        Text("Eli Bitir", fontSize = ScreenTextSize)
+                        Button(
+                            onClick = { draftHand = Hand() },
+                                                        colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFFFD700),
+                                contentColor = Color.Black,
+                            ),
+                            modifier = Modifier.weight(1f).padding(end = 8.dp),
+                        ) {
+                            Text("El Ekle", fontSize = ScreenTextSize)
+                        }
+                        Button(
+                            onClick = { showFinishConfirmation = true },
+                                                        colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.Red,
+                                contentColor = Color.White,
+                            ),
+                            modifier = Modifier.weight(1f).padding(start = 8.dp),
+                        ) {
+                            Text("Eli Bitir", fontSize = ScreenTextSize)
+                        }
                     }
                 }
 
