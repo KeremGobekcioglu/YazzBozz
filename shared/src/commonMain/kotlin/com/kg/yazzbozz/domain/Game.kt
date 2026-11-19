@@ -54,10 +54,20 @@ data class Hand(
     val finishingTeam: Int? get() = finisherSeat?.let(::teamOfSeat)
 }
 
+/** [label] is only a note of why, as on paper; it never affects [value]. */
 data class Penalty(
     val team: Int,
     val value: Int,
     val label: String? = null,
+)
+
+/** Ready-made reasons for a penalty. Picking one is optional. */
+val PenaltyReasons: List<String> = listOf(
+    "Yandan taş alma",
+    "Okey atma",
+    "Elde okey kalması",
+    "Yanlış açma",
+    "Diğer",
 )
 
 fun teamOfSeat(seat: Int): Int = if (seat < 2) 1 else 2

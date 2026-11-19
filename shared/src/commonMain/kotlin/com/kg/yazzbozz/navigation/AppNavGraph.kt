@@ -72,7 +72,7 @@ fun AppNavGraph(
                 uiState = yazBozViewModel.uiState,
                 onConfirmHand = yazBozViewModel::onConfirmHand,
                 onFinishClick = yazBozViewModel::onFinishClicked,
-                onAddPenalty = { team, value -> yazBozViewModel.onAddPenalty(team, value) },
+                onAddPenalty = yazBozViewModel::onAddPenalty,
                 onNewGameClick = yazBozViewModel::onNewGameClicked,
                 onHistoryClick = { navController.navigate(PreviousResultsRoute) },
                 onLeaveClick = {

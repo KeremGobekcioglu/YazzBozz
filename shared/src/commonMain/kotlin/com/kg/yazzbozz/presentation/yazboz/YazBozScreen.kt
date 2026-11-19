@@ -7,6 +7,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -44,10 +46,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kg.yazzbozz.domain.Hand
 import com.kg.yazzbozz.domain.Penalty
+import com.kg.yazzbozz.domain.PenaltyReasons
+import com.kg.yazzbozz.domain.turkishLowercase
 import com.kg.yazzbozz.domain.teamOfSeat
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
@@ -63,7 +68,7 @@ fun YazBozScreen(
     uiState: YazBozUiState,
     onConfirmHand: (Hand) -> Unit = {},
     onFinishClick: () -> Unit = {},
-    onAddPenalty: (team: Int, value: Int) -> Unit = { _, _ -> },
+    onAddPenalty: (team: Int, value: Int, label: String?) -> Unit = { _, _, _ -> },
     onNewGameClick: () -> Unit = {},
     onLeaveClick: () -> Unit = {},
     onHistoryClick: () -> Unit = {},
@@ -239,8 +244,8 @@ fun YazBozScreen(
             CenteredPanel(onDismiss = { penaltyTeam = null }) {
                 AddPenaltyPanel(
                     teamName = if (currentPenaltyTeam == 1) uiState.team1Name else uiState.team2Name,
-                    onConfirm = { value ->
-                        onAddPenalty(currentPenaltyTeam, value)
+                    onConfirm = { value, label ->
+                        onAddPenalty(currentPenaltyTeam, value, label)
                         penaltyTeam = null
                     },
                     onDismiss = { penaltyTeam = null },
@@ -356,26 +361,52 @@ private fun ResultsContent(uiState: YazBozUiState) {
         }
     }
 }
+
 @Composable
 private fun PenaltySummary(penalties: ImmutableList<Penalty>) {
     if (penalties.isEmpty()) return
+    val terms = penalties.joinToString(" + ") { penalty ->
+        penalty.label?.let { "${penalty.value} (${it.turkishLowercase()})" } ?: penalty.value.toString()
+    }
     Text(
-        "Ceza: ${penalties.joinToString(" + ") { it.value.toString() }} = ${penalties.sumOf { it.value }}",
+        "Ceza: $terms = ${penalties.sumOf { it.value }}",
         color = Color.Gray,
         fontSize = 13.sp,
     )
 }
 
-/** Penalty values for one team, as written — no multiplier, no rule. */
+/** The standard 100 is written as "X", like on paper; any other value as the number. */
+private fun penaltyMark(value: Int): String = if (value == StandardPenalty) "X" else value.toString()
+
+private const val StandardPenalty = 100
+
+/** Penalties for one team, as written — no multiplier, no rule — each with its reason, if given. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PenaltyCell(penalties: ImmutableList<Penalty>, modifier: Modifier = Modifier) {
-    Text(
-        penalties.joinToString("  ") { it.value.toString() },
-        modifier.padding(horizontal = 12.dp),
-        color = Color.Black,
-        fontSize = ScreenTextSize,
-        textAlign = TextAlign.Start,
-    )
+    FlowRow(
+        modifier = modifier.padding(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        penalties.forEach { penalty ->
+            Row {
+                Text(
+                    penaltyMark(penalty.value),
+                    color = Color.Black,
+                    fontSize = ScreenTextSize,
+                    modifier = Modifier.alignByBaseline(),
+                )
+                penalty.label?.let { label ->
+                    Text(
+                        label.turkishLowercase(),
+                        color = Color.Gray,
+                        fontSize = 12.sp,
+                        modifier = Modifier.alignByBaseline().padding(start = 4.dp),
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -464,17 +495,23 @@ private fun CenteredPanel(
 
 // ---------------------------------------------------------------- penalty panel
 
-private const val DefaultPenaltyText = "100"
+private val DefaultPenaltyText = StandardPenalty.toString()
 
-/** Value is pre-filled so the common case is one tap; any number can be typed instead. */
+/**
+ * Value is pre-filled so the common case is one tap; any number can be typed instead.
+ * The reason is optional and has no effect on the value.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AddPenaltyPanel(
     teamName: String,
-    onConfirm: (value: Int) -> Unit,
+    onConfirm: (value: Int, label: String?) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var valueText by remember { mutableStateOf(DefaultPenaltyText) }
+    var label: String? by remember { mutableStateOf(null) }
     val value = valueText.trim().toIntOrNull()
+    val confirm = { value?.let { onConfirm(it, label) } }
 
     Column(
         modifier = Modifier
@@ -492,9 +529,29 @@ private fun AddPenaltyPanel(
             label = { Text("Ceza puanı") },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { value?.let(onConfirm) }),
+            keyboardActions = KeyboardActions(onDone = { confirm() }),
             modifier = Modifier.fillMaxWidth(),
         )
+
+        Spacer(Modifier.height(16.dp))
+
+        Text("Neden? (isteğe bağlı)", fontSize = 12.sp, color = Color.Gray)
+        Spacer(Modifier.height(6.dp))
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            PenaltyReasons.forEach { reason ->
+                NameChip(
+                    label = reason,
+                    selected = label == reason,
+                    // Tap the selected reason again to clear it.
+                    onClick = { label = reason.takeUnless { label == reason } },
+                    horizontalPadding = 10.dp,
+                )
+            }
+        }
 
         Spacer(Modifier.height(16.dp))
 
@@ -503,7 +560,7 @@ private fun AddPenaltyPanel(
                 Text("Vazgeç")
             }
             Button(
-                onClick = { value?.let(onConfirm) },
+                onClick = { confirm() },
                 enabled = value != null,
                 modifier = Modifier.weight(1f),
             ) {
@@ -626,6 +683,7 @@ private fun NameChip(
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    horizontalPadding: Dp = 0.dp,
 ) {
     val borderColor = if (selected) Color.Black else Color.LightGray
     Box(
@@ -633,7 +691,7 @@ private fun NameChip(
             .clip(RoundedCornerShape(6.dp))
             .border(1.5.dp, borderColor, RoundedCornerShape(6.dp))
             .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
+            .padding(horizontal = horizontalPadding, vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(text = label, color = Color.Black, fontSize = 13.sp)
