@@ -58,3 +58,71 @@ fun lineups(history: List<GameSummary>): List<Lineup> =
                 games = games.size,
             )
         }
+
+// ---------------------------------------------------------------- filtering & records
+
+/** Lower total wins (scores on a yazboz are points against); a tie has no winner. */
+val GameSummary.winningTeam: Int?
+    get() = when {
+        totalTeam1 < totalTeam2 -> 1
+        totalTeam2 < totalTeam1 -> 2
+        else -> null
+    }
+
+sealed interface HistoryFilter {
+    val key: String
+
+    data class Player(override val key: String) : HistoryFilter
+    data class Team(override val key: String) : HistoryFilter
+}
+
+/** A person or pair in the history, with how many games they played and won. */
+data class HistoryRecord(
+    val filter: HistoryFilter,
+    val label: String,
+    val games: Int,
+    val wins: Int,
+)
+
+/** The team the [filter]ed person or pair played on in this game, or null if they weren't in it. */
+fun GameSummary.sideOf(filter: HistoryFilter): Int? = when (filter) {
+    is HistoryFilter.Player -> players.indexOfFirst { it.key == filter.key }.takeIf { it >= 0 }?.let(::teamOfSeat)
+    is HistoryFilter.Team -> when {
+        !isComplete -> null
+        teamKey(1) == filter.key -> 1
+        teamKey(2) == filter.key -> 2
+        else -> null
+    }
+}
+
+fun List<GameSummary>.filteredBy(selection: HistoryFilter?): List<GameSummary> =
+    if (selection == null) this else filter { it.sideOf(selection) != null }
+
+private fun List<GameSummary>.recordFor(selection: HistoryFilter, label: String): HistoryRecord {
+    val played = filteredBy(selection)
+    return HistoryRecord(
+        filter = selection,
+        label = label,
+        games = played.size,
+        wins = played.count { it.winningTeam != null && it.winningTeam == it.sideOf(selection) },
+    )
+}
+
+/** Every person in the history, most games first. */
+fun playerRecords(history: List<GameSummary>): List<HistoryRecord> =
+    knownPlayers(history).map { history.recordFor(HistoryFilter.Player(it.name.key), it.name.displayName) }
+
+/** Every pair that played together, most games first. */
+fun teamRecords(history: List<GameSummary>): List<HistoryRecord> =
+    history.filter { it.isComplete }
+        .flatMap { game ->
+            listOf(
+                game.teamKey(1) to (game.players[0] to game.players[1]),
+                game.teamKey(2) to (game.players[2] to game.players[3]),
+            )
+        }
+        .distinctBy { it.first }
+        .map { (key, pair) ->
+            history.recordFor(HistoryFilter.Team(key), "${pair.first.displayName} & ${pair.second.displayName}")
+        }
+        .sortedByDescending { it.games }

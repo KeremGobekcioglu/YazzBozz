@@ -58,4 +58,40 @@ class HistoryIndexTest {
         val withVariants = history + game("0", listOf(kerem, ali, ayse, fatma), team1 = "BİZ", team2 = "onlar")
         assertEquals(listOf("Biz", "Onlar", "Kızlar", "Erkekler"), knownTeamNames(withVariants))
     }
+
+    // Kerem & Ali vs Ayşe & Fatma; lower total wins.
+    private val results = listOf(
+        game("c", listOf(ayse, fatma, PlayerName("ali"), kerem), totals = 300 to 120), // Kerem & Ali win
+        game("b", listOf(kerem, ali, ayse, fatma), totals = 90 to 400), // Kerem & Ali win
+        game("a", listOf(kerem, ilker, ayse, fatma), totals = 250 to 250), // tie
+    )
+
+    @Test
+    fun lowerTotalWinsAndTieHasNoWinner() {
+        assertEquals(listOf(2, 1, null), results.map { it.winningTeam })
+    }
+
+    @Test
+    fun playerRecordCountsGamesAndWinsOnWhicheverSideTheySat() {
+        val records = playerRecords(results).associateBy { it.label }
+        assertEquals(3, records.getValue("Kerem").games)
+        assertEquals(2, records.getValue("Kerem").wins)
+        assertEquals(3, records.getValue("Ayşe").games)
+        assertEquals(0, records.getValue("Ayşe").wins)
+        assertEquals(1, records.getValue("İlker").games)
+        assertEquals(0, records.getValue("İlker").wins)
+    }
+
+    @Test
+    fun teamRecordIgnoresSeatOrder() {
+        val keremAli = teamRecords(results).first { it.filter.key == teamKey(kerem, ali) }
+        assertEquals(2, keremAli.games)
+        assertEquals(2, keremAli.wins)
+        assertEquals(listOf("c", "b"), results.filteredBy(keremAli.filter).map { it.id })
+    }
+
+    @Test
+    fun noFilterKeepsEverything() {
+        assertEquals(results, results.filteredBy(null))
+    }
 }

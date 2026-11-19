@@ -1,7 +1,10 @@
 package com.kg.yazzbozz.presentation.results
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,24 +16,30 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kg.yazzbozz.domain.GameSummary
+import com.kg.yazzbozz.domain.HistoryFilter
+import com.kg.yazzbozz.domain.HistoryRecord
 import com.kg.yazzbozz.platform.formatGameDate
 import kotlinx.collections.immutable.ImmutableList
 
 @Composable
 fun PreviousResultsScreen(
-    games: ImmutableList<GameSummary>?,
+    uiState: PreviousResultsUiState?,
+    onFilterClick: (HistoryFilter) -> Unit,
     onGameClick: (gameId: String) -> Unit,
     onBackClick: () -> Unit,
 ) {
@@ -53,18 +62,74 @@ fun PreviousResultsScreen(
         Spacer(Modifier.height(8.dp))
 
         when {
-            games == null -> Unit
-            games.isEmpty() -> Text(
+            uiState == null -> Unit
+            uiState.players.isEmpty() -> Text(
                 "Henüz biten oyun yok.",
                 color = Color.Gray,
                 modifier = Modifier.padding(16.dp),
             )
-            else -> LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
-                items(games, key = { it.id }) { game ->
-                    GameSummaryRow(game, onClick = { onGameClick(game.id) })
-                    HorizontalDivider()
+            else -> {
+                FilterRow("Oyuncu", uiState.players, uiState.selected, onFilterClick)
+                FilterRow("Takım", uiState.teams, uiState.selected, onFilterClick)
+
+                uiState.selected?.let { record ->
+                    Text(
+                        "${record.label}: ${record.games} oyun, ${record.wins} galibiyet",
+                        color = Color.Black,
+                        fontSize = 15.sp,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
+                HorizontalDivider()
+
+                LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
+                    items(uiState.games, key = { it.id }) { game ->
+                        GameSummaryRow(game, onClick = { onGameClick(game.id) })
+                        HorizontalDivider()
+                    }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun FilterRow(
+    title: String,
+    records: ImmutableList<HistoryRecord>,
+    selected: HistoryRecord?,
+    onClick: (HistoryFilter) -> Unit,
+) {
+    if (records.isEmpty()) return
+    Text(
+        title,
+        color = Color.Gray,
+        fontSize = 13.sp,
+        modifier = Modifier.padding(start = 16.dp, top = 8.dp),
+    )
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        records.forEach { record ->
+            val isSelected = record.filter == selected?.filter
+            Text(
+                "${record.label} · ${record.games}",
+                color = Color.Black,
+                fontSize = 13.sp,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .border(
+                        width = if (isSelected) 1.5.dp else 1.dp,
+                        color = if (isSelected) Color.Black else Color.LightGray,
+                        shape = RoundedCornerShape(6.dp),
+                    )
+                    .clickable { onClick(record.filter) }
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+            )
         }
     }
 }

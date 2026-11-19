@@ -86,9 +86,10 @@ fun AppNavGraph(
 
         composable<PreviousResultsRoute> {
             val viewModel = viewModel { PreviousResultsViewModel(appGraph.gameRepository) }
-            val games by viewModel.games.collectAsStateWithLifecycle()
+            val uiState by viewModel.uiState.collectAsStateWithLifecycle()
             PreviousResultsScreen(
-                games = games,
+                uiState = uiState,
+                onFilterClick = viewModel::onFilterClick,
                 onGameClick = { gameId -> navController.navigate(PreviousGameRoute(gameId)) },
                 onBackClick = { navController.popBackStack() },
             )
