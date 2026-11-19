@@ -49,6 +49,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kg.yazzbozz.domain.DayTitle
 import com.kg.yazzbozz.domain.Hand
 import com.kg.yazzbozz.domain.Penalty
 import com.kg.yazzbozz.domain.PenaltyReasons
@@ -86,6 +87,10 @@ fun YazBozScreen(
     Box(
         modifier = Modifier.fillMaxSize().background(Color.White).statusBarsPadding().navigationBarsPadding()
     ) {
+        // Drawn first so opaque parts on top (results, buttons) cover it; it shows through
+        // everywhere else, as the line down the middle of the paper.
+        VerticalDivider(Modifier.fillMaxHeight().align(Alignment.Center))
+
         Column(Modifier.fillMaxSize()) {
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 8.dp),
@@ -219,8 +224,6 @@ fun YazBozScreen(
             }
         }
 
-        VerticalDivider(Modifier.fillMaxHeight().align(Alignment.Center))
-
         // Scrim + centered panels. They sit above everything else in this Box because
         // they're declared last — later children in a Box draw on top.
         val currentDraft = draftHand
@@ -306,6 +309,7 @@ private fun ResultsContent(uiState: YazBozUiState) {
     LazyColumn(
         modifier = Modifier
             .fillMaxWidth()
+            .background(Color.White)
             .padding(horizontal = 16.dp),
     ) {
         item {
@@ -338,25 +342,28 @@ private fun ResultsContent(uiState: YazBozUiState) {
                 Text("Oyuncu", modifier = Modifier.weight(2f), color = Color.Black)
                 Text("Açış", modifier = Modifier.weight(1f), color = Color.Black, textAlign = TextAlign.Center)
                 Text("Bitiş", modifier = Modifier.weight(1f), color = Color.Black, textAlign = TextAlign.Center)
+                Text("Puan", modifier = Modifier.weight(1f), color = Color.Black, textAlign = TextAlign.Center)
             }
+            Text("Puan = açış + 2 × bitiş", color = Color.Gray, fontSize = 11.sp)
             Spacer(Modifier.height(8.dp))
         }
 
-        items(uiState.playerNames.size) { seat ->
-            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                Text(uiState.playerNames[seat], modifier = Modifier.weight(2f), color = Color.Black)
-                Text(
-                    uiState.openingCounts.getOrElse(seat) { 0 }.toString(),
-                    modifier = Modifier.weight(1f),
-                    color = Color.Black,
-                    textAlign = TextAlign.Center,
-                )
-                Text(
-                    uiState.finishCounts.getOrElse(seat) { 0 }.toString(),
-                    modifier = Modifier.weight(1f),
-                    color = Color.Black,
-                    textAlign = TextAlign.Center,
-                )
+        items(uiState.ranking, key = { it.seat }) { rank ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(2f)) {
+                    Text(rank.name, color = Color.Black)
+                    rank.title?.let { title ->
+                        Text(title.text, color = title.lightColor, fontSize = 12.sp)
+                    }
+                }
+                listOf(rank.openings, rank.finishes, rank.score).forEach { number ->
+                    Text(
+                        number.toString(),
+                        modifier = Modifier.weight(1f),
+                        color = Color.Black,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
         }
     }
@@ -697,3 +704,16 @@ private fun NameChip(
         Text(text = label, color = Color.Black, fontSize = 13.sp)
     }
 }
+
+internal val DayTitle.text: String
+    get() = when (this) {
+        DayTitle.Carrier -> "Günün taşıyanı"
+        DayTitle.Rat -> "Günün sıçanı"
+    }
+
+/** Title colour on a white background. */
+internal val DayTitle.lightColor: Color
+    get() = when (this) {
+        DayTitle.Carrier -> Color(0xFFB8860B)
+        DayTitle.Rat -> Color(0xFF8D6E63)
+    }

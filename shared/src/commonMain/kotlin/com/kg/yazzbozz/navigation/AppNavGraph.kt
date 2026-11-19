@@ -22,6 +22,7 @@ import com.kg.yazzbozz.presentation.onboarding.EntranceViewModel
 import com.kg.yazzbozz.presentation.results.PreviousGameViewModel
 import com.kg.yazzbozz.presentation.results.PreviousResultsScreen
 import com.kg.yazzbozz.presentation.results.PreviousResultsViewModel
+import com.kg.yazzbozz.presentation.yazboz.ScoreRevealScene
 import com.kg.yazzbozz.presentation.yazboz.StartState
 import com.kg.yazzbozz.presentation.yazboz.YazBozScreen
 import com.kg.yazzbozz.presentation.yazboz.YazzBozzViewModel
@@ -68,20 +69,25 @@ fun AppNavGraph(
         }
 
         composable<YazBozRoute> {
-            YazBozScreen(
-                uiState = yazBozViewModel.uiState,
-                onConfirmHand = yazBozViewModel::onConfirmHand,
-                onFinishClick = yazBozViewModel::onFinishClicked,
-                onAddPenalty = yazBozViewModel::onAddPenalty,
-                onNewGameClick = yazBozViewModel::onNewGameClicked,
-                onHistoryClick = { navController.navigate(PreviousResultsRoute) },
-                onLeaveClick = {
-                    yazBozViewModel.onAbandonGame()
-                    navController.navigate(EntranceRoute) {
-                        popUpTo<YazBozRoute> { inclusive = true }
-                    }
-                },
-            )
+            Box(Modifier.fillMaxSize()) {
+                YazBozScreen(
+                    uiState = yazBozViewModel.uiState,
+                    onConfirmHand = yazBozViewModel::onConfirmHand,
+                    onFinishClick = yazBozViewModel::onFinishClicked,
+                    onAddPenalty = yazBozViewModel::onAddPenalty,
+                    onNewGameClick = yazBozViewModel::onNewGameClicked,
+                    onHistoryClick = { navController.navigate(PreviousResultsRoute) },
+                    onLeaveClick = {
+                        yazBozViewModel.onAbandonGame()
+                        navController.navigate(EntranceRoute) {
+                            popUpTo<YazBozRoute> { inclusive = true }
+                        }
+                    },
+                )
+                yazBozViewModel.reveal?.let { reveal ->
+                    ScoreRevealScene(state = reveal, onClose = yazBozViewModel::onRevealClosed)
+                }
+            }
         }
 
         composable<PreviousResultsRoute> {
