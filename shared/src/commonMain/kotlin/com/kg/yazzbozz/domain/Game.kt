@@ -26,6 +26,17 @@ data class GameRecord(
             penalties.filter { it.team == team }.sumOf { it.value }
 }
 
+/** A finished game as listed in the history; totals are the ones stored at "Bitir". */
+data class GameSummary(
+    val id: String,
+    val finishedAt: Long,
+    val team1Name: String,
+    val team2Name: String,
+    val players: List<PlayerName>,
+    val totalTeam1: Int,
+    val totalTeam2: Int,
+)
+
 data class PlayerName(
     val firstName: String,
     val lastName: String = "",

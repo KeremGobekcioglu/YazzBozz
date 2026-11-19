@@ -18,11 +18,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
@@ -45,6 +47,7 @@ data class EntranceOnboardingData(
 @Composable
 fun EntranceScreen(
     onStartClick: (EntranceOnboardingData) -> Unit,
+    onHistoryClick: () -> Unit,
 ) {
     var team1Name by rememberSaveable { mutableStateOf("") }
     var team2Name by rememberSaveable { mutableStateOf("") }
@@ -70,7 +73,12 @@ fun EntranceScreen(
             .verticalScroll(rememberScrollState())
             .padding(24.dp),
     ) {
-        Text("Yazboz", fontSize = TitleTextSize, color = Color.Black)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("Yazboz", fontSize = TitleTextSize, color = Color.Black, modifier = Modifier.weight(1f))
+            TextButton(onClick = onHistoryClick) {
+                Text("Geçmiş")
+            }
+        }
         Spacer(Modifier.height(24.dp))
 
         TeamSection(

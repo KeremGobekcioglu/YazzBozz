@@ -6,6 +6,7 @@ import com.kg.yazzbozz.data.local.GamePlayerEntity
 import com.kg.yazzbozz.data.local.HandEntity
 import com.kg.yazzbozz.data.local.PenaltyEntity
 import com.kg.yazzbozz.domain.GameRecord
+import com.kg.yazzbozz.domain.GameSummary
 import com.kg.yazzbozz.domain.Hand
 import com.kg.yazzbozz.domain.Penalty
 import com.kg.yazzbozz.domain.PlayerName
@@ -15,6 +16,8 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.completeWith
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 /**
@@ -64,6 +67,25 @@ class GameRepository(
     suspend fun loadGame(gameId: String): GameRecord? = afterPendingWrites {
         dao.game(gameId)?.let { loadRecord(it) }
     }
+
+    /** Finished games, newest first. */
+    fun observeHistory(): Flow<List<GameSummary>> =
+        combine(dao.finishedGames(), dao.finishedGamePlayers()) { games, players ->
+            val playersByGame = players.groupBy { it.gameId }
+            games.map { game ->
+                GameSummary(
+                    id = game.id,
+                    finishedAt = game.finishedAt ?: game.startedAt,
+                    team1Name = game.team1Name,
+                    team2Name = game.team2Name,
+                    players = playersByGame[game.id].orEmpty()
+                        .sortedBy { it.seat }
+                        .map { PlayerName(it.firstName, it.lastName) },
+                    totalTeam1 = game.totalTeam1 ?: 0,
+                    totalTeam2 = game.totalTeam2 ?: 0,
+                )
+            }
+        }
 
     private suspend fun <T> afterPendingWrites(block: suspend () -> T): T {
         val result = CompletableDeferred<T>()

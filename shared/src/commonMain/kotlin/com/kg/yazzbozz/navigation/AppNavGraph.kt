@@ -4,18 +4,24 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
 import com.kg.yazzbozz.AppGraph
 import com.kg.yazzbozz.domain.PlayerName
 import com.kg.yazzbozz.presentation.onboarding.EntranceOnboardingData
 import com.kg.yazzbozz.presentation.onboarding.EntranceScreen
+import com.kg.yazzbozz.presentation.results.PreviousGameViewModel
+import com.kg.yazzbozz.presentation.results.PreviousResultsScreen
+import com.kg.yazzbozz.presentation.results.PreviousResultsViewModel
 import com.kg.yazzbozz.presentation.yazboz.StartState
 import com.kg.yazzbozz.presentation.yazboz.YazBozScreen
 import com.kg.yazzbozz.presentation.yazboz.YazzBozzViewModel
@@ -44,6 +50,7 @@ fun AppNavGraph(
     ) {
         composable<EntranceRoute> {
             EntranceScreen(
+                onHistoryClick = { navController.navigate(PreviousResultsRoute) },
                 onStartClick = { onboarding: EntranceOnboardingData ->
                     yazBozViewModel.startNewGame(
                         team1Name = onboarding.team1Name,
@@ -69,6 +76,7 @@ fun AppNavGraph(
                 onFinishClick = yazBozViewModel::onFinishClicked,
                 onAddPenalty = { team, value -> yazBozViewModel.onAddPenalty(team, value) },
                 onNewGameClick = yazBozViewModel::onNewGameClicked,
+                onHistoryClick = { navController.navigate(PreviousResultsRoute) },
                 onLeaveClick = {
                     yazBozViewModel.onAbandonGame()
                     navController.navigate(EntranceRoute) {
@@ -76,6 +84,32 @@ fun AppNavGraph(
                     }
                 },
             )
+        }
+
+        composable<PreviousResultsRoute> {
+            val viewModel = viewModel { PreviousResultsViewModel(appGraph.gameRepository) }
+            val games by viewModel.games.collectAsStateWithLifecycle()
+            PreviousResultsScreen(
+                games = games,
+                onGameClick = { gameId -> navController.navigate(PreviousGameRoute(gameId)) },
+                onBackClick = { navController.popBackStack() },
+            )
+        }
+
+        composable<PreviousGameRoute> { backStackEntry ->
+            val gameId = backStackEntry.toRoute<PreviousGameRoute>().gameId
+            val viewModel = viewModel(key = gameId) { PreviousGameViewModel(appGraph.gameRepository, gameId) }
+            val uiState = viewModel.uiState
+            if (uiState == null) {
+                Box(Modifier.fillMaxSize().background(Color.White))
+            } else {
+                YazBozScreen(
+                    uiState = uiState,
+                    readOnly = true,
+                    subtitle = viewModel.date,
+                    onBackClick = { navController.popBackStack() },
+                )
+            }
         }
     }
 }

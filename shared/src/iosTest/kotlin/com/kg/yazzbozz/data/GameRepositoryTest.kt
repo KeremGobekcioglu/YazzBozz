@@ -13,6 +13,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSTemporaryDirectory
@@ -72,6 +73,11 @@ class GameRepositoryTest {
         repository.save(finished)
         assertNull(repository.loadOngoing())
         assertEquals(finished, repository.loadGame(finished.id))
+
+        val summary = repository.observeHistory().first().single()
+        assertEquals(finished.players, summary.players)
+        assertEquals(132 + 55, summary.totalTeam1)
+        assertEquals(87 + 100, summary.totalTeam2)
 
         repository.delete(finished.id)
         assertNull(repository.loadGame(finished.id))

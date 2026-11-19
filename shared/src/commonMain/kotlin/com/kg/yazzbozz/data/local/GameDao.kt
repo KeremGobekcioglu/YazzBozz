@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface GameDao {
@@ -72,4 +73,13 @@ interface GameDao {
 
     @Query("SELECT * FROM penalties WHERE gameId = :gameId ORDER BY position")
     suspend fun penalties(gameId: String): List<PenaltyEntity>
+
+    @Query("SELECT * FROM games WHERE finishedAt IS NOT NULL ORDER BY finishedAt DESC")
+    fun finishedGames(): Flow<List<GameEntity>>
+
+    @Query(
+        "SELECT p.* FROM game_players p JOIN games g ON g.id = p.gameId " +
+            "WHERE g.finishedAt IS NOT NULL ORDER BY p.gameId, p.seat",
+    )
+    fun finishedGamePlayers(): Flow<List<GamePlayerEntity>>
 }

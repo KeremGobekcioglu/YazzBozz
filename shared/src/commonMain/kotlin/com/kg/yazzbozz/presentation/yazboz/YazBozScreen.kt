@@ -54,14 +54,22 @@ import kotlinx.collections.immutable.toImmutableList
 
 private val ScreenTextSize = 21.sp
 
+/**
+ * The sheet. With [readOnly] it shows a game from the history exactly as it was played,
+ * minus the buttons that change it.
+ */
 @Composable
 fun YazBozScreen(
     uiState: YazBozUiState,
-    onConfirmHand: (Hand) -> Unit,
-    onFinishClick: () -> Unit,
-    onAddPenalty: (team: Int, value: Int) -> Unit,
-    onNewGameClick: () -> Unit,
-    onLeaveClick: () -> Unit,
+    onConfirmHand: (Hand) -> Unit = {},
+    onFinishClick: () -> Unit = {},
+    onAddPenalty: (team: Int, value: Int) -> Unit = { _, _ -> },
+    onNewGameClick: () -> Unit = {},
+    onLeaveClick: () -> Unit = {},
+    onHistoryClick: () -> Unit = {},
+    readOnly: Boolean = false,
+    onBackClick: () -> Unit = {},
+    subtitle: String? = null,
 ) {
     // Local, throwaway UI state — nothing here reaches the ViewModel until "Ekle"
     // is tapped inside the panel. Closing it any other way just discards the draft.
@@ -74,14 +82,31 @@ fun YazBozScreen(
         modifier = Modifier.fillMaxSize().background(Color.White).statusBarsPadding().navigationBarsPadding()
     ) {
         Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.End) {
-                TextButton(
-                    onClick = {
-                        // A finished sheet is already saved; an empty one has nothing to lose.
-                        if (uiState.isFinished || !uiState.hasEntries) onLeaveClick() else showLeaveConfirmation = true
-                    },
-                ) {
-                    Text("Yeni oyun")
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (readOnly) {
+                    TextButton(onClick = onBackClick) {
+                        Text("‹ Geçmiş")
+                    }
+                    Spacer(Modifier.weight(1f))
+                    subtitle?.let {
+                        Text(it, color = Color.Gray, fontSize = 13.sp, modifier = Modifier.padding(end = 12.dp))
+                    }
+                } else {
+                    TextButton(onClick = onHistoryClick) {
+                        Text("Geçmiş")
+                    }
+                    Spacer(Modifier.weight(1f))
+                    TextButton(
+                        onClick = {
+                            // A finished sheet is already saved; an empty one has nothing to lose.
+                            if (uiState.isFinished || !uiState.hasEntries) onLeaveClick() else showLeaveConfirmation = true
+                        },
+                    ) {
+                        Text("Yeni oyun")
+                    }
                 }
             }
 
@@ -121,68 +146,70 @@ fun YazBozScreen(
                 PenaltyCell(uiState.penaltiesTeam2, Modifier.weight(1f))
             }
 
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
-            ) {
-                Button(
-                    onClick = { penaltyTeam = 1 },
-                    enabled = !uiState.isFinished,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Blue,
-                        contentColor = Color.White,
-                    ),
-                    modifier = Modifier.weight(1f).padding(end = 8.dp),
+            if (!readOnly) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
                 ) {
-                    Text("Ceza Ekle", fontSize = ScreenTextSize)
+                    Button(
+                        onClick = { penaltyTeam = 1 },
+                        enabled = !uiState.isFinished,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Blue,
+                            contentColor = Color.White,
+                        ),
+                        modifier = Modifier.weight(1f).padding(end = 8.dp),
+                    ) {
+                        Text("Ceza Ekle", fontSize = ScreenTextSize)
+                    }
+                    Button(
+                        onClick = { penaltyTeam = 2 },
+                        enabled = !uiState.isFinished,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Blue,
+                            contentColor = Color.White,
+                        ),
+                        modifier = Modifier.weight(1f).padding(start = 8.dp),
+                    ) {
+                        Text("Ceza Ekle", fontSize = ScreenTextSize)
+                    }
                 }
-                Button(
-                    onClick = { penaltyTeam = 2 },
-                    enabled = !uiState.isFinished,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Blue,
-                        contentColor = Color.White,
-                    ),
-                    modifier = Modifier.weight(1f).padding(start = 8.dp),
-                ) {
-                    Text("Ceza Ekle", fontSize = ScreenTextSize)
-                }
-            }
 
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
-            ) {
-                Button(
-                    onClick = { draftHand = Hand() },
-                    enabled = !uiState.isFinished,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFFD700),
-                        contentColor = Color.Black,
-                    ),
-                    modifier = Modifier.weight(1f).padding(end = 8.dp),
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
-                    Text("El Ekle", fontSize = ScreenTextSize)
+                    Button(
+                        onClick = { draftHand = Hand() },
+                        enabled = !uiState.isFinished,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFFFD700),
+                            contentColor = Color.Black,
+                        ),
+                        modifier = Modifier.weight(1f).padding(end = 8.dp),
+                    ) {
+                        Text("El Ekle", fontSize = ScreenTextSize)
+                    }
+                    Button(
+                        onClick = { showFinishConfirmation = true },
+                        enabled = !uiState.isFinished,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Red,
+                            contentColor = Color.White,
+                        ),
+                        modifier = Modifier.weight(1f).padding(start = 8.dp),
+                    ) {
+                        Text("Eli Bitir", fontSize = ScreenTextSize)
+                    }
                 }
-                Button(
-                    onClick = { showFinishConfirmation = true },
-                    enabled = !uiState.isFinished,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Red,
-                        contentColor = Color.White,
-                    ),
-                    modifier = Modifier.weight(1f).padding(start = 8.dp),
-                ) {
-                    Text("Eli Bitir", fontSize = ScreenTextSize)
-                }
-            }
 
-            if (uiState.isFinished) {
-                Button(
-                    onClick = onNewGameClick,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                ) {
-                    Text("Aynı kadroyla yeni oyun", fontSize = ScreenTextSize)
+                if (uiState.isFinished) {
+                    Button(
+                        onClick = onNewGameClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                    ) {
+                        Text("Aynı kadroyla yeni oyun", fontSize = ScreenTextSize)
+                    }
                 }
             }
         }
@@ -192,7 +219,7 @@ fun YazBozScreen(
         // Scrim + centered panels. They sit above everything else in this Box because
         // they're declared last — later children in a Box draw on top.
         val currentDraft = draftHand
-        if (currentDraft != null && !uiState.isFinished) {
+        if (currentDraft != null && !uiState.isFinished && !readOnly) {
             CenteredPanel(onDismiss = { draftHand = null }) {
                 AddHandPanel(
                     draftHand = currentDraft,
@@ -208,7 +235,7 @@ fun YazBozScreen(
         }
 
         val currentPenaltyTeam = penaltyTeam
-        if (currentPenaltyTeam != null && !uiState.isFinished) {
+        if (currentPenaltyTeam != null && !uiState.isFinished && !readOnly) {
             CenteredPanel(onDismiss = { penaltyTeam = null }) {
                 AddPenaltyPanel(
                     teamName = if (currentPenaltyTeam == 1) uiState.team1Name else uiState.team2Name,
