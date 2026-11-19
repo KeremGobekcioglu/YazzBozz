@@ -7,24 +7,24 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -43,32 +43,78 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kg.yazzbozz.domain.Hand
+import com.kg.yazzbozz.domain.Penalty
+import com.kg.yazzbozz.domain.PenaltyReasons
+import com.kg.yazzbozz.domain.turkishLowercase
+import com.kg.yazzbozz.domain.teamOfSeat
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
 private val ScreenTextSize = 21.sp
 
+/**
+ * The sheet. With [readOnly] it shows a game from the history exactly as it was played,
+ * minus the buttons that change it.
+ */
 @Composable
 fun YazBozScreen(
     uiState: YazBozUiState,
-    onConfirmHand: (Hand) -> Unit,
-    onFinishClick: () -> Unit,
-    onPenaltyClick: (team: Int) -> Unit,
-    onNewGameClick: () -> Unit,
+    onConfirmHand: (Hand) -> Unit = {},
+    onFinishClick: () -> Unit = {},
+    onAddPenalty: (team: Int, value: Int, label: String?) -> Unit = { _, _, _ -> },
+    onNewGameClick: () -> Unit = {},
+    onLeaveClick: () -> Unit = {},
+    onHistoryClick: () -> Unit = {},
+    readOnly: Boolean = false,
+    onBackClick: () -> Unit = {},
+    subtitle: String? = null,
 ) {
     // Local, throwaway UI state — nothing here reaches the ViewModel until "Ekle"
     // is tapped inside the panel. Closing it any other way just discards the draft.
     var draftHand: Hand? by remember { mutableStateOf(null) }
     var showFinishConfirmation by remember { mutableStateOf(false) }
+    var showLeaveConfirmation by remember { mutableStateOf(false) }
+    var penaltyTeam: Int? by remember { mutableStateOf(null) }
 
     Box(
         modifier = Modifier.fillMaxSize().background(Color.White).statusBarsPadding().navigationBarsPadding()
     ) {
         Column(Modifier.fillMaxSize()) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (readOnly) {
+                    TextButton(onClick = onBackClick) {
+                        Text("‹ Geçmiş")
+                    }
+                    Spacer(Modifier.weight(1f))
+                    subtitle?.let {
+                        Text(it, color = Color.Gray, fontSize = 13.sp, modifier = Modifier.padding(end = 12.dp))
+                    }
+                } else {
+                    TextButton(onClick = onHistoryClick) {
+                        Text("Geçmiş")
+                    }
+                    Spacer(Modifier.weight(1f))
+                    TextButton(
+                        onClick = {
+                            // A finished sheet is already saved; an empty one has nothing to lose.
+                            if (uiState.isFinished || !uiState.hasEntries) onLeaveClick() else showLeaveConfirmation = true
+                        },
+                    ) {
+                        Text("Yeni oyun")
+                    }
+                }
+            }
+
             if (uiState.isFinished) {
                 ResultsContent(uiState = uiState)
                 Spacer(Modifier.height(12.dp))
@@ -95,138 +141,140 @@ fun YazBozScreen(
 
             LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 items(uiState.hands) { hand ->
-                    HandRow(
-                        scoreOfTeam1 = hand.scoreTeam1,
-                        scoreOfTeam2 = hand.scoreTeam2,
-                        whichTeamFinished = hand.whichTeamFinished ?: 0,
-                        whoFinished = hand.whoFinished,
-                        team1Openers = hand.whoOpenedTeam1,
-                        team2Openers = hand.whoOpenedTeam2
-                    )
+                    HandRow(hand = hand, seatLabels = uiState.seatLabels)
                     HorizontalDivider()
                 }
             }
 
             Row(Modifier.fillMaxWidth().padding(bottom = 16.dp, top = 16.dp)) {
-                Text(
-                    "X".repeat(uiState.penaltiesTeam1),
-                    Modifier.weight(1f),
-                    color = Color.Black,
-                    fontSize = ScreenTextSize,
-                    textAlign = TextAlign.Start,
-                )
-                Text(
-                    "X".repeat(uiState.penaltiesTeam2),
-                    Modifier.weight(1f),
-                    color = Color.Black,
-                    fontSize = ScreenTextSize,
-                    textAlign = TextAlign.Start,
-                )
+                PenaltyCell(uiState.penaltiesTeam1, Modifier.weight(1f))
+                PenaltyCell(uiState.penaltiesTeam2, Modifier.weight(1f))
             }
 
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
-            ) {
-                Button(
-                    onClick = { onPenaltyClick(1) },
-                    enabled = !uiState.isFinished,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Blue,
-                        contentColor = Color.White,
-                    ),
-                    modifier = Modifier.weight(1f).padding(end = 8.dp),
+            if (!readOnly) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
                 ) {
-                    Text("Ceza Ekle", fontSize = ScreenTextSize)
+                    Button(
+                        onClick = { penaltyTeam = 1 },
+                        enabled = !uiState.isFinished,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Blue,
+                            contentColor = Color.White,
+                        ),
+                        modifier = Modifier.weight(1f).padding(end = 8.dp),
+                    ) {
+                        Text("Ceza Ekle", fontSize = ScreenTextSize)
+                    }
+                    Button(
+                        onClick = { penaltyTeam = 2 },
+                        enabled = !uiState.isFinished,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Blue,
+                            contentColor = Color.White,
+                        ),
+                        modifier = Modifier.weight(1f).padding(start = 8.dp),
+                    ) {
+                        Text("Ceza Ekle", fontSize = ScreenTextSize)
+                    }
                 }
-                Button(
-                    onClick = { onPenaltyClick(2) },
-                    enabled = !uiState.isFinished,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Blue,
-                        contentColor = Color.White,
-                    ),
-                    modifier = Modifier.weight(1f).padding(start = 8.dp),
-                ) {
-                    Text("Ceza Ekle", fontSize = ScreenTextSize)
-                }
-            }
 
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
-            ) {
-                Button(
-                    onClick = { draftHand = Hand() },
-                    enabled = !uiState.isFinished,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFFD700),
-                        contentColor = Color.Black,
-                    ),
-                    modifier = Modifier.weight(1f).padding(end = 8.dp),
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
-                    Text("El Ekle", fontSize = ScreenTextSize)
+                    Button(
+                        onClick = { draftHand = Hand() },
+                        enabled = !uiState.isFinished,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFFFD700),
+                            contentColor = Color.Black,
+                        ),
+                        modifier = Modifier.weight(1f).padding(end = 8.dp),
+                    ) {
+                        Text("El Ekle", fontSize = ScreenTextSize)
+                    }
+                    Button(
+                        onClick = { showFinishConfirmation = true },
+                        enabled = !uiState.isFinished,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Red,
+                            contentColor = Color.White,
+                        ),
+                        modifier = Modifier.weight(1f).padding(start = 8.dp),
+                    ) {
+                        Text("Eli Bitir", fontSize = ScreenTextSize)
+                    }
                 }
-                Button(
-                    onClick = { showFinishConfirmation = true },
-                    enabled = !uiState.isFinished,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Red,
-                        contentColor = Color.White,
-                    ),
-                    modifier = Modifier.weight(1f).padding(start = 8.dp),
-                ) {
-                    Text("Eli Bitir", fontSize = ScreenTextSize)
-                }
-            }
 
-            if (uiState.isFinished) {
-                Button(
-                    onClick = onNewGameClick,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                ) {
-                    Text("Yeni Oyun", fontSize = ScreenTextSize)
+                if (uiState.isFinished) {
+                    Button(
+                        onClick = onNewGameClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                    ) {
+                        Text("Aynı kadroyla yeni oyun", fontSize = ScreenTextSize)
+                    }
                 }
             }
         }
 
         VerticalDivider(Modifier.fillMaxHeight().align(Alignment.Center))
 
-        // Scrim + centered panel. Sits above everything else in this Box because
-        // it's declared last — later children in a Box draw on top.
+        // Scrim + centered panels. They sit above everything else in this Box because
+        // they're declared last — later children in a Box draw on top.
         val currentDraft = draftHand
-        if (currentDraft != null && !uiState.isFinished) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.5f))
-                    .clickable(
-                        indication = null,
-                        interactionSource = remember { MutableInteractionSource() },
-                    ) { draftHand = null }, // tap outside the card to dismiss
-                contentAlignment = Alignment.Center,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .padding(24.dp)
-                        .clickable(
-                            indication = null,
-                            interactionSource = remember { MutableInteractionSource() },
-                        ) { /* absorb clicks so tapping the card doesn't dismiss it */ },
-                ) {
-                    AddHandPanel(
-                        draftHand = currentDraft,
-                        playerNames = uiState.playerNames,
-                        onDraftChanged = { draftHand = it },
-                        onConfirm = {
-                            onConfirmHand(currentDraft)
-                            draftHand = null
-                        },
-                        onDismiss = { draftHand = null },
-                    )
-                }
+        if (currentDraft != null && !uiState.isFinished && !readOnly) {
+            CenteredPanel(onDismiss = { draftHand = null }) {
+                AddHandPanel(
+                    draftHand = currentDraft,
+                    playerNames = uiState.playerChipNames,
+                    onDraftChanged = { draftHand = it },
+                    onConfirm = {
+                        onConfirmHand(currentDraft)
+                        draftHand = null
+                    },
+                    onDismiss = { draftHand = null },
+                )
             }
         }
+
+        val currentPenaltyTeam = penaltyTeam
+        if (currentPenaltyTeam != null && !uiState.isFinished && !readOnly) {
+            CenteredPanel(onDismiss = { penaltyTeam = null }) {
+                AddPenaltyPanel(
+                    teamName = if (currentPenaltyTeam == 1) uiState.team1Name else uiState.team2Name,
+                    onConfirm = { value, label ->
+                        onAddPenalty(currentPenaltyTeam, value, label)
+                        penaltyTeam = null
+                    },
+                    onDismiss = { penaltyTeam = null },
+                )
+            }
+        }
+    }
+
+    if (showLeaveConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showLeaveConfirmation = false },
+            title = { Text("Yeni oyun?") },
+            text = { Text("Bu oyun bitirilmedi ve silinecek. Geçmişe kaydetmek için önce \"Eli Bitir\"e bas.") },
+            dismissButton = {
+                TextButton(onClick = { showLeaveConfirmation = false }) {
+                    Text("Vazgeç")
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showLeaveConfirmation = false
+                        onLeaveClick()
+                    },
+                ) {
+                    Text("Sil ve başla")
+                }
+            },
+        )
     }
 
     if (showFinishConfirmation) {
@@ -270,11 +318,7 @@ private fun ResultsContent(uiState: YazBozUiState) {
                 Text(uiState.team1Name, color = Color.Black, fontSize = 18.sp)
                 Text(uiState.totalScoreTeam1.toString(), color = Color.Black, fontSize = 18.sp)
             }
-            Text(
-                "Ceza: ${uiState.penaltiesTeam1} x 100 = ${uiState.penaltiesTeam1 * 100}",
-                color = Color.Gray,
-                fontSize = 13.sp,
-            )
+            PenaltySummary(uiState.penaltiesTeam1)
             Spacer(Modifier.height(8.dp))
         }
 
@@ -283,11 +327,7 @@ private fun ResultsContent(uiState: YazBozUiState) {
                 Text(uiState.team2Name, color = Color.Black, fontSize = 18.sp)
                 Text(uiState.totalScoreTeam2.toString(), color = Color.Black, fontSize = 18.sp)
             }
-            Text(
-                "Ceza: ${uiState.penaltiesTeam2} x 100 = ${uiState.penaltiesTeam2 * 100}",
-                color = Color.Gray,
-                fontSize = 13.sp,
-            )
+            PenaltySummary(uiState.penaltiesTeam2)
             Spacer(Modifier.height(16.dp))
             HorizontalDivider()
             Spacer(Modifier.height(12.dp))
@@ -302,17 +342,17 @@ private fun ResultsContent(uiState: YazBozUiState) {
             Spacer(Modifier.height(8.dp))
         }
 
-        items(uiState.playerNames) { playerName ->
+        items(uiState.playerNames.size) { seat ->
             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                Text(playerName, modifier = Modifier.weight(2f), color = Color.Black)
+                Text(uiState.playerNames[seat], modifier = Modifier.weight(2f), color = Color.Black)
                 Text(
-                    (uiState.openingCounts[playerName] ?: 0).toString(),
+                    uiState.openingCounts.getOrElse(seat) { 0 }.toString(),
                     modifier = Modifier.weight(1f),
                     color = Color.Black,
                     textAlign = TextAlign.Center,
                 )
                 Text(
-                    (uiState.finishCounts[playerName] ?: 0).toString(),
+                    uiState.finishCounts.getOrElse(seat) { 0 }.toString(),
                     modifier = Modifier.weight(1f),
                     color = Color.Black,
                     textAlign = TextAlign.Center,
@@ -321,46 +361,77 @@ private fun ResultsContent(uiState: YazBozUiState) {
         }
     }
 }
+
+@Composable
+private fun PenaltySummary(penalties: ImmutableList<Penalty>) {
+    if (penalties.isEmpty()) return
+    val terms = penalties.joinToString(" + ") { penalty ->
+        penalty.label?.let { "${penalty.value} (${it.turkishLowercase()})" } ?: penalty.value.toString()
+    }
+    Text(
+        "Ceza: $terms = ${penalties.sumOf { it.value }}",
+        color = Color.Gray,
+        fontSize = 13.sp,
+    )
+}
+
+/** The standard 100 is written as "X", like on paper; any other value as the number. */
+private fun penaltyMark(value: Int): String = if (value == StandardPenalty) "X" else value.toString()
+
+private const val StandardPenalty = 100
+
+/** Penalties for one team, as written — no multiplier, no rule — each with its reason, if given. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PenaltyCell(penalties: ImmutableList<Penalty>, modifier: Modifier = Modifier) {
+    FlowRow(
+        modifier = modifier.padding(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        penalties.forEach { penalty ->
+            Row {
+                Text(
+                    penaltyMark(penalty.value),
+                    color = Color.Black,
+                    fontSize = ScreenTextSize,
+                    modifier = Modifier.alignByBaseline(),
+                )
+                penalty.label?.let { label ->
+                    Text(
+                        label.turkishLowercase(),
+                        color = Color.Gray,
+                        fontSize = 12.sp,
+                        modifier = Modifier.alignByBaseline().padding(start = 4.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun HandRow(
-    scoreOfTeam1: Int,
-    scoreOfTeam2: Int,
-    whoFinished: Char? = null,
-    whichTeamFinished: Int = 0, // 1 or 2, matches team1Openers/team2Openers
-    team1Openers: ImmutableList<Char>,
-    team2Openers: ImmutableList<Char>,
+    hand: Hand,
+    seatLabels: ImmutableList<String>,
 ) {
     Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-        HandCell(
-            score = scoreOfTeam1,
-            openers = team1Openers,
-            finishedInitial = whoFinished.takeIf { whichTeamFinished == 1 },
-            modifier = Modifier.weight(1f),
-        )
+        HandCell(hand = hand, team = 1, seatLabels = seatLabels, modifier = Modifier.weight(1f))
         VerticalDivider()
-        HandCell(
-            score = scoreOfTeam2,
-            openers = team2Openers,
-            finishedInitial = whoFinished.takeIf { whichTeamFinished == 2 },
-            modifier = Modifier.weight(1f),
-        )
+        HandCell(hand = hand, team = 2, seatLabels = seatLabels, modifier = Modifier.weight(1f))
     }
 }
 
 @Composable
 private fun HandCell(
-    score: Int,
-    openers: ImmutableList<Char>,
-    finishedInitial: Char?,
+    hand: Hand,
+    team: Int,
+    seatLabels: ImmutableList<String>,
     modifier: Modifier = Modifier,
 ) {
-    // The finisher is also in `openers` (they had to open before finishing) — drop
-    // their letter here so it's drawn once, circled, not once plain + once circled.
-    val plainOpeners = if (finishedInitial != null) {
-        openers.filterNot { it == finishedInitial }
-    } else {
-        openers
-    }
+    val score = if (team == 1) hand.scoreTeam1 else hand.scoreTeam2
+    val finisherSeat = hand.finisherSeat?.takeIf { teamOfSeat(it) == team }
+    // The finisher also opened (they had to, to finish) — draw their mark once, circled.
+    val plainOpeners = hand.openerSeats.filter { teamOfSeat(it) == team && it != finisherSeat }
 
     Row(
         modifier = modifier.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -375,18 +446,125 @@ private fun HandCell(
             fontSize = ScreenTextSize,
         )
         Spacer(Modifier.weight(1.2f))
-        plainOpeners.forEach { initial ->
-            Text(text = initial.toString(), color = Color.Black, fontSize = ScreenTextSize)
+        plainOpeners.forEach { seat ->
+            Text(text = seatLabels.getOrElse(seat) { "?" }, color = Color.Black, fontSize = ScreenTextSize)
             Spacer(Modifier.width(4.dp))
         }
-        finishedInitial?.let { initial ->
+        finisherSeat?.let { seat ->
+            val label = seatLabels.getOrElse(seat) { "?" }
             Box(
                 modifier = Modifier
-                    .size(22.dp)
-                    .border(1.dp, Color.Black, CircleShape),
+                    .border(1.dp, Color.Black, RoundedCornerShape(percent = 50))
+                    .defaultMinSize(minWidth = 22.dp, minHeight = 22.dp)
+                    .padding(horizontal = if (label.length > 1) 4.dp else 0.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(text = initial.toString(), color = Color.Black, fontSize = ScreenTextSize)
+                Text(text = label, color = Color.Black, fontSize = ScreenTextSize)
+            }
+        }
+    }
+}
+
+@Composable
+private fun CenteredPanel(
+    onDismiss: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.5f))
+            .clickable(
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() },
+            ) { onDismiss() }, // tap outside the card to dismiss
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(24.dp)
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() },
+                ) { /* absorb clicks so tapping the card doesn't dismiss it */ },
+        ) {
+            content()
+        }
+    }
+}
+
+// ---------------------------------------------------------------- penalty panel
+
+private val DefaultPenaltyText = StandardPenalty.toString()
+
+/**
+ * Value is pre-filled so the common case is one tap; any number can be typed instead.
+ * The reason is optional and has no effect on the value.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AddPenaltyPanel(
+    teamName: String,
+    onConfirm: (value: Int, label: String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var valueText by remember { mutableStateOf(DefaultPenaltyText) }
+    var label: String? by remember { mutableStateOf(null) }
+    val value = valueText.trim().toIntOrNull()
+    val confirm = { value?.let { onConfirm(it, label) } }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White, RoundedCornerShape(12.dp))
+            .border(1.dp, Color.LightGray, RoundedCornerShape(12.dp))
+            .padding(16.dp),
+    ) {
+        Text("$teamName — ceza", fontSize = 16.sp, color = Color.Black)
+        Spacer(Modifier.height(12.dp))
+
+        OutlinedTextField(
+            value = valueText,
+            onValueChange = { valueText = it },
+            label = { Text("Ceza puanı") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { confirm() }),
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        Spacer(Modifier.height(16.dp))
+
+        Text("Neden? (isteğe bağlı)", fontSize = 12.sp, color = Color.Gray)
+        Spacer(Modifier.height(6.dp))
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            PenaltyReasons.forEach { reason ->
+                NameChip(
+                    label = reason,
+                    selected = label == reason,
+                    // Tap the selected reason again to clear it.
+                    onClick = { label = reason.takeUnless { label == reason } },
+                    horizontalPadding = 10.dp,
+                )
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(onClick = onDismiss, modifier = Modifier.weight(1f)) {
+                Text("Vazgeç")
+            }
+            Button(
+                onClick = { confirm() },
+                enabled = value != null,
+                modifier = Modifier.weight(1f),
+            ) {
+                Text("Ekle")
             }
         }
     }
@@ -400,8 +578,7 @@ private fun HandCell(
  * here just produces an updated copy via [onDraftChanged]. Nothing reaches the
  * ViewModel until the screen's own onConfirm fires.
  *
- * Team split assumes playerNames[0],[1] = team1, playerNames[2],[3] = team2
- * (indices 0-3, so player id = index + 1).
+ * [playerNames] is indexed by seat: 0,1 = team 1; 2,3 = team 2.
  */
 @Composable
 private fun AddHandPanel(
@@ -411,8 +588,8 @@ private fun AddHandPanel(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val team1Locked = draftHand.whichTeamFinished == 1
-    val team2Locked = draftHand.whichTeamFinished == 2
+    val team1Locked = draftHand.finishingTeam == 1
+    val team2Locked = draftHand.finishingTeam == 2
 
     Column(
         modifier = Modifier
@@ -426,21 +603,14 @@ private fun AddHandPanel(
         Text("Kim bitirdi?", fontSize = 12.sp, color = Color.Gray)
         Spacer(Modifier.height(6.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            playerNames.forEachIndexed { index, name ->
-                val id = index + 1
-                val team = if (id in 1..2) 1 else 2
-                val initial = name.firstOrNull() ?: return@forEachIndexed
+            playerNames.forEachIndexed { seat, name ->
                 NameChip(
                     label = name,
-                    selected = draftHand.whoFinished == initial,
+                    selected = draftHand.finisherSeat == seat,
                     onClick = {
                         // Tap the same finisher again to clear it.
                         onDraftChanged(
-                            if (draftHand.whoFinished == initial) {
-                                draftHand.copy(whoFinished = null, whichTeamFinished = null)
-                            } else {
-                                draftHand.copy(whoFinished = initial, whichTeamFinished = team)
-                            },
+                            draftHand.copy(finisherSeat = seat.takeUnless { draftHand.finisherSeat == seat }),
                         )
                     },
                     modifier = Modifier.weight(1f),
@@ -453,32 +623,14 @@ private fun AddHandPanel(
         Text("Elini kim açtı?", fontSize = 12.sp, color = Color.Gray)
         Spacer(Modifier.height(6.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            playerNames.forEachIndexed { index, name ->
-                val id = index + 1
-                val team = if (id in 1..2) 1 else 2
-                val initial = name.firstOrNull() ?: return@forEachIndexed
-                val opened = initial in draftHand.whoOpenedTeam1 || initial in draftHand.whoOpenedTeam2
+            playerNames.forEachIndexed { seat, name ->
+                val opened = seat in draftHand.openerSeats
                 NameChip(
                     label = name,
                     selected = opened,
                     onClick = {
-                        onDraftChanged(
-                            if (team == 1) {
-                                val updated = if (opened) {
-                                    draftHand.whoOpenedTeam1.filterNot { it == initial }
-                                } else {
-                                    draftHand.whoOpenedTeam1 + initial
-                                }
-                                draftHand.copy(whoOpenedTeam1 = updated.toImmutableList())
-                            } else {
-                                val updated = if (opened) {
-                                    draftHand.whoOpenedTeam2.filterNot { it == initial }
-                                } else {
-                                    draftHand.whoOpenedTeam2 + initial
-                                }
-                                draftHand.copy(whoOpenedTeam2 = updated.toImmutableList())
-                            },
-                        )
+                        val updated = if (opened) draftHand.openerSeats - seat else draftHand.openerSeats + seat
+                        onDraftChanged(draftHand.copy(openerSeats = updated.sorted().toImmutableList()))
                     },
                     modifier = Modifier.weight(1f),
                 )
@@ -531,6 +683,7 @@ private fun NameChip(
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    horizontalPadding: Dp = 0.dp,
 ) {
     val borderColor = if (selected) Color.Black else Color.LightGray
     Box(
@@ -538,7 +691,7 @@ private fun NameChip(
             .clip(RoundedCornerShape(6.dp))
             .border(1.5.dp, borderColor, RoundedCornerShape(6.dp))
             .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
+            .padding(horizontal = horizontalPadding, vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(text = label, color = Color.Black, fontSize = 13.sp)

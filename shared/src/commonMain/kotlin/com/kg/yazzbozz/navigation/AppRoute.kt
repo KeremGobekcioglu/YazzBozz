@@ -8,12 +8,12 @@ sealed interface AppRoute
 @Serializable
 data object EntranceRoute : AppRoute
 
+/** The sheet itself lives in YazzBozzViewModel (and the database), not in the route. */
 @Serializable
-data class YazBozRoute(
-    val team1Name: String,
-    val team2Name: String,
-    val player1Name: String,
-    val player2Name: String,
-    val player3Name: String,
-    val player4Name: String,
-) : AppRoute
+data object YazBozRoute : AppRoute
+
+@Serializable
+data object PreviousResultsRoute : AppRoute
+
+@Serializable
+data class PreviousGameRoute(val gameId: String) : AppRoute
