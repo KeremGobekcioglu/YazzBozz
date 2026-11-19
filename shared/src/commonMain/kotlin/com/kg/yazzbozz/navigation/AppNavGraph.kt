@@ -16,9 +16,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.kg.yazzbozz.AppGraph
-import com.kg.yazzbozz.domain.PlayerName
 import com.kg.yazzbozz.presentation.onboarding.EntranceOnboardingData
 import com.kg.yazzbozz.presentation.onboarding.EntranceScreen
+import com.kg.yazzbozz.presentation.onboarding.EntranceViewModel
 import com.kg.yazzbozz.presentation.results.PreviousGameViewModel
 import com.kg.yazzbozz.presentation.results.PreviousResultsScreen
 import com.kg.yazzbozz.presentation.results.PreviousResultsViewModel
@@ -49,18 +49,16 @@ fun AppNavGraph(
         startDestination = startDestination,
     ) {
         composable<EntranceRoute> {
+            val entranceViewModel = viewModel { EntranceViewModel(appGraph.gameRepository) }
+            val suggestions by entranceViewModel.suggestions.collectAsStateWithLifecycle()
             EntranceScreen(
+                suggestions = suggestions,
                 onHistoryClick = { navController.navigate(PreviousResultsRoute) },
                 onStartClick = { onboarding: EntranceOnboardingData ->
                     yazBozViewModel.startNewGame(
                         team1Name = onboarding.team1Name,
                         team2Name = onboarding.team2Name,
-                        players = listOf(
-                            PlayerName(onboarding.player1Name),
-                            PlayerName(onboarding.player2Name),
-                            PlayerName(onboarding.player3Name),
-                            PlayerName(onboarding.player4Name),
-                        ),
+                        players = onboarding.players,
                     )
                     navController.navigate(YazBozRoute) {
                         popUpTo<EntranceRoute> { inclusive = true }
