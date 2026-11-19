@@ -50,15 +50,15 @@ internal fun GameRecord.startReveal(ranking: ImmutableList<PlayerRank>) = ScoreR
 )
 
 private const val IntroMillis = 800L
-private const val TeamBudgetMillis = 4_000L
-private const val MinStepMillis = 220L
+private const val TeamBudgetMillis = 6_500L
+private const val MinStepMillis = 260L
 private const val MaxStepMillis = 1_200L
 private const val EmptyTeamMillis = 900L
 private const val BetweenTeamsMillis = 700L
 private const val ResultHoldMillis = 2_800L
 
 /**
- * Runs the ~10 s timeline, publishing each frame of state through [emit]. Each team gets
+ * Runs the ~15 s timeline (for a 20+ hand game), publishing each frame of state through [emit]. Each team gets
  * about [TeamBudgetMillis]; steps are spread evenly within it, clamped so a long game
  * doesn't flicker and a short one doesn't drag.
  */

@@ -71,10 +71,18 @@ class ScoreRevealTest {
     }
 
     @Test
-    fun aTypicalGameTakesAboutTenSecondsBeforeTheVerdict() = runSync {
-        val hands = List(12) { Hand(scoreTeam1 = 10 + it, scoreTeam2 = 20 + it) }
-        val (_, waited) = play(game(hands))
+    fun aTwentyHandGameTakesAboutFifteenSecondsBeforeTheVerdict() = runSync {
+        val hands = List(22) { Hand(scoreTeam1 = 10 + it, scoreTeam2 = 20 + it) }
+        val penalties = listOf(Penalty(1, 100), Penalty(2, 100), Penalty(2, 55))
+        val (_, waited) = play(game(hands, penalties))
         val untilVerdict = waited - 2_800 // the result hold comes after the verdict
-        assertTrue(untilVerdict in 9_000..11_000, "took $untilVerdict ms")
+        assertTrue(untilVerdict in 14_000..16_000, "took $untilVerdict ms")
+    }
+
+    @Test
+    fun aVeryLongGameStillStaysUnderHalfAMinute() = runSync {
+        val hands = List(40) { Hand(scoreTeam1 = 10 + it, scoreTeam2 = 20 + it) }
+        val (_, waited) = play(game(hands))
+        assertTrue(waited - 2_800 < 25_000, "took ${waited - 2_800} ms")
     }
 }
