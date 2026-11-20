@@ -10,7 +10,7 @@ class ResultsTest {
     @Test
     fun lowerTotalWins() {
         assertEquals(1, winningTeam(100, 200))
-        assertEquals(2, winningTeam(300, -50))
+        assertEquals(2, winningTeam(300, 50))
         assertNull(winningTeam(150, 150))
     }
 
@@ -39,7 +39,7 @@ class ResultsTest {
     }
 
     @Test
-    fun countStepsGoTeamByTeamHandsThenPenaltiesSkippingZeros() {
+    fun countStepsGoTeamByTeamHandsThenPenaltiesSkippingZerosAllAdding() {
         val game = GameRecord(
             id = "g",
             startedAt = 0,
@@ -57,7 +57,7 @@ class ResultsTest {
                 CountStep(team = 1, delta = 132, isPenalty = false),
                 CountStep(team = 1, delta = 55, isPenalty = true),
                 CountStep(team = 2, delta = 87, isPenalty = false),
-                CountStep(team = 2, delta = -101, isPenalty = false),
+                CountStep(team = 2, delta = 101, isPenalty = false), // written as -101, counted as 101
                 CountStep(team = 2, delta = 100, isPenalty = true, label = "Okey atma"),
             ),
             game.countSteps(),

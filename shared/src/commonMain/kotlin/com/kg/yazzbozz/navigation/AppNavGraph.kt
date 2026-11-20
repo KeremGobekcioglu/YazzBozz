@@ -73,8 +73,10 @@ fun AppNavGraph(
                 YazBozScreen(
                     uiState = yazBozViewModel.uiState,
                     onConfirmHand = yazBozViewModel::onConfirmHand,
+                    onEditHand = yazBozViewModel::onEditHand,
                     onFinishClick = yazBozViewModel::onFinishClicked,
                     onAddPenalty = yazBozViewModel::onAddPenalty,
+                    onEditPenalty = yazBozViewModel::onEditPenalty,
                     onNewGameClick = yazBozViewModel::onNewGameClicked,
                     onHistoryClick = { navController.navigate(PreviousResultsRoute) },
                     onLeaveClick = {
@@ -85,7 +87,11 @@ fun AppNavGraph(
                     },
                 )
                 yazBozViewModel.reveal?.let { reveal ->
-                    ScoreRevealScene(state = reveal, onClose = yazBozViewModel::onRevealClosed)
+                    ScoreRevealScene(
+                        state = reveal,
+                        onClose = yazBozViewModel::onRevealClosed,
+                        onSkip = yazBozViewModel::onRevealSkipped,
+                    )
                 }
             }
         }

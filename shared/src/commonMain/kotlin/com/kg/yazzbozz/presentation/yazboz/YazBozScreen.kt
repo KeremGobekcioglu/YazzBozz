@@ -1,6 +1,16 @@
 package com.kg.yazzbozz.presentation.yazboz
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.key
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.compose.NavigationBackHandler
+import androidx.navigationevent.compose.rememberNavigationEventState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -22,7 +32,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -60,16 +69,25 @@ import kotlinx.collections.immutable.toImmutableList
 
 private val ScreenTextSize = 21.sp
 
+/** The hand panel is writing a new hand ([index] null) or correcting hand [index]. */
+private data class HandEditor(val index: Int?, val initial: Hand)
+
+/** The penalty panel is writing a new penalty for [team] ([indexInTeam] null) or correcting one. */
+private data class PenaltyEditor(val team: Int, val indexInTeam: Int?, val initial: Penalty?)
+
 /**
  * The sheet. With [readOnly] it shows a game from the history exactly as it was played,
- * minus the buttons that change it.
+ * minus the buttons that change it. While the game is open, tapping a hand or a penalty
+ * opens it for correction or crossing out.
  */
 @Composable
 fun YazBozScreen(
     uiState: YazBozUiState,
     onConfirmHand: (Hand) -> Unit = {},
+    onEditHand: (index: Int, hand: Hand?) -> Unit = { _, _ -> },
     onFinishClick: () -> Unit = {},
     onAddPenalty: (team: Int, value: Int, label: String?) -> Unit = { _, _, _ -> },
+    onEditPenalty: (team: Int, indexInTeam: Int, penalty: Penalty?) -> Unit = { _, _, _ -> },
     onNewGameClick: () -> Unit = {},
     onLeaveClick: () -> Unit = {},
     onHistoryClick: () -> Unit = {},
@@ -77,12 +95,13 @@ fun YazBozScreen(
     onBackClick: () -> Unit = {},
     subtitle: String? = null,
 ) {
-    // Local, throwaway UI state — nothing here reaches the ViewModel until "Ekle"
-    // is tapped inside the panel. Closing it any other way just discards the draft.
-    var draftHand: Hand? by remember { mutableStateOf(null) }
+    // Local, throwaway UI state — nothing here reaches the ViewModel until the panel's
+    // confirm button is tapped. Closing it any other way just discards the draft.
+    var handEditor: HandEditor? by remember { mutableStateOf(null) }
+    var penaltyEditor: PenaltyEditor? by remember { mutableStateOf(null) }
     var showFinishConfirmation by remember { mutableStateOf(false) }
     var showLeaveConfirmation by remember { mutableStateOf(false) }
-    var penaltyTeam: Int? by remember { mutableStateOf(null) }
+    val editable = !readOnly && !uiState.isFinished
 
     Box(
         modifier = Modifier.fillMaxSize().background(Color.White).statusBarsPadding().navigationBarsPadding()
@@ -145,15 +164,34 @@ fun YazBozScreen(
             }
 
             LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                items(uiState.hands) { hand ->
-                    HandRow(hand = hand, seatLabels = uiState.seatLabels)
+                itemsIndexed(uiState.hands) { index, hand ->
+                    HandRow(
+                        hand = hand,
+                        seatLabels = uiState.seatLabels,
+                        onClick = if (editable) {
+                            { handEditor = HandEditor(index = index, initial = hand) }
+                        } else {
+                            null
+                        },
+                    )
                     HorizontalDivider()
                 }
             }
 
             Row(Modifier.fillMaxWidth().padding(bottom = 16.dp, top = 16.dp)) {
-                PenaltyCell(uiState.penaltiesTeam1, Modifier.weight(1f))
-                PenaltyCell(uiState.penaltiesTeam2, Modifier.weight(1f))
+                listOf(uiState.penaltiesTeam1, uiState.penaltiesTeam2).forEachIndexed { side, penalties ->
+                    PenaltyCell(
+                        penalties = penalties,
+                        onClick = if (editable) {
+                            { indexInTeam, penalty ->
+                                penaltyEditor = PenaltyEditor(team = side + 1, indexInTeam = indexInTeam, initial = penalty)
+                            }
+                        } else {
+                            null
+                        },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
 
             if (!readOnly) {
@@ -163,8 +201,8 @@ fun YazBozScreen(
                         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
                     ) {
                         Button(
-                            onClick = { penaltyTeam = 1 },
-                                                        colors = ButtonDefaults.buttonColors(
+                            onClick = { penaltyEditor = PenaltyEditor(team = 1, indexInTeam = null, initial = null) },
+                            colors = ButtonDefaults.buttonColors(
                                 containerColor = Color.Blue,
                                 contentColor = Color.White,
                             ),
@@ -173,8 +211,8 @@ fun YazBozScreen(
                             Text("Ceza Ekle", fontSize = ScreenTextSize)
                         }
                         Button(
-                            onClick = { penaltyTeam = 2 },
-                                                        colors = ButtonDefaults.buttonColors(
+                            onClick = { penaltyEditor = PenaltyEditor(team = 2, indexInTeam = null, initial = null) },
+                            colors = ButtonDefaults.buttonColors(
                                 containerColor = Color.Blue,
                                 contentColor = Color.White,
                             ),
@@ -188,8 +226,8 @@ fun YazBozScreen(
                         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         Button(
-                            onClick = { draftHand = Hand() },
-                                                        colors = ButtonDefaults.buttonColors(
+                            onClick = { handEditor = HandEditor(index = null, initial = Hand()) },
+                            colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFFFFD700),
                                 contentColor = Color.Black,
                             ),
@@ -199,13 +237,13 @@ fun YazBozScreen(
                         }
                         Button(
                             onClick = { showFinishConfirmation = true },
-                                                        colors = ButtonDefaults.buttonColors(
+                            colors = ButtonDefaults.buttonColors(
                                 containerColor = Color.Red,
                                 contentColor = Color.White,
                             ),
                             modifier = Modifier.weight(1f).padding(start = 8.dp),
                         ) {
-                            Text("Eli Bitir", fontSize = ScreenTextSize)
+                            Text("Oyunu Bitir", fontSize = ScreenTextSize)
                         }
                     }
                 }
@@ -225,33 +263,58 @@ fun YazBozScreen(
 
         // Scrim + centered panels. They sit above everything else in this Box because
         // they're declared last — later children in a Box draw on top.
-        val currentDraft = draftHand
-        if (currentDraft != null && !uiState.isFinished && !readOnly) {
-            CenteredPanel(onDismiss = { draftHand = null }) {
-                AddHandPanel(
-                    draftHand = currentDraft,
-                    playerNames = uiState.playerChipNames,
-                    onDraftChanged = { draftHand = it },
-                    onConfirm = {
-                        onConfirmHand(currentDraft)
-                        draftHand = null
-                    },
-                    onDismiss = { draftHand = null },
-                )
+        val currentHandEditor = handEditor
+        if (currentHandEditor != null && editable) {
+            val editIndex = currentHandEditor.index
+            CenteredPanel(onDismiss = { handEditor = null }) {
+                // Keyed so opening another hand starts from that hand, not the last draft.
+                key(currentHandEditor) {
+                    HandPanel(
+                        initial = currentHandEditor.initial,
+                        isCorrection = editIndex != null,
+                        playerNames = uiState.playerChipNames,
+                        onConfirm = { hand ->
+                            if (editIndex == null) onConfirmHand(hand) else onEditHand(editIndex, hand)
+                            handEditor = null
+                        },
+                        onDelete = editIndex?.let { index ->
+                            {
+                                onEditHand(index, null)
+                                handEditor = null
+                            }
+                        },
+                        onDismiss = { handEditor = null },
+                    )
+                }
             }
         }
 
-        val currentPenaltyTeam = penaltyTeam
-        if (currentPenaltyTeam != null && !uiState.isFinished && !readOnly) {
-            CenteredPanel(onDismiss = { penaltyTeam = null }) {
-                AddPenaltyPanel(
-                    teamName = if (currentPenaltyTeam == 1) uiState.team1Name else uiState.team2Name,
-                    onConfirm = { value, label ->
-                        onAddPenalty(currentPenaltyTeam, value, label)
-                        penaltyTeam = null
-                    },
-                    onDismiss = { penaltyTeam = null },
-                )
+        val currentPenaltyEditor = penaltyEditor
+        if (currentPenaltyEditor != null && editable) {
+            val team = currentPenaltyEditor.team
+            val editIndex = currentPenaltyEditor.indexInTeam
+            CenteredPanel(onDismiss = { penaltyEditor = null }) {
+                key(currentPenaltyEditor) {
+                    PenaltyPanel(
+                        teamName = if (team == 1) uiState.team1Name else uiState.team2Name,
+                        initial = currentPenaltyEditor.initial,
+                        onConfirm = { value, label ->
+                            if (editIndex == null) {
+                                onAddPenalty(team, value, label)
+                            } else {
+                                onEditPenalty(team, editIndex, Penalty(team = team, value = value, label = label))
+                            }
+                            penaltyEditor = null
+                        },
+                        onDelete = editIndex?.let { index ->
+                            {
+                                onEditPenalty(team, index, null)
+                                penaltyEditor = null
+                            }
+                        },
+                        onDismiss = { penaltyEditor = null },
+                    )
+                }
             }
         }
     }
@@ -260,7 +323,7 @@ fun YazBozScreen(
         AlertDialog(
             onDismissRequest = { showLeaveConfirmation = false },
             title = { Text("Yeni oyun?") },
-            text = { Text("Bu oyun bitirilmedi ve silinecek. Geçmişe kaydetmek için önce \"Eli Bitir\"e bas.") },
+            text = { Text("Bu oyun bitirilmedi ve silinecek. Geçmişe kaydetmek için önce \"Oyunu Bitir\"e bas.") },
             dismissButton = {
                 TextButton(onClick = { showLeaveConfirmation = false }) {
                     Text("Vazgeç")
@@ -282,8 +345,8 @@ fun YazBozScreen(
     if (showFinishConfirmation) {
         AlertDialog(
             onDismissRequest = { showFinishConfirmation = false },
-            title = { Text("Eli bitir?") },
-            text = { Text("Eli bitirmek istediğinize emin misiniz?") },
+            title = { Text("Oyunu bitir?") },
+            text = { Text("Oyun bitirilip geçmişe kaydedilecek. Sonrasında el ya da ceza eklenemez.") },
             dismissButton = {
                 TextButton(onClick = { showFinishConfirmation = false }) {
                     Text("Vazgeç")
@@ -386,16 +449,28 @@ private fun penaltyMark(value: Int): String = if (value == StandardPenalty) "X" 
 
 private const val StandardPenalty = 100
 
-/** Penalties for one team, as written — no multiplier, no rule — each with its reason, if given. */
+/**
+ * Penalties for one team, as written — no multiplier, no rule — each with its reason, if given.
+ * With [onClick], tapping one opens it for correction.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PenaltyCell(penalties: ImmutableList<Penalty>, modifier: Modifier = Modifier) {
+private fun PenaltyCell(
+    penalties: ImmutableList<Penalty>,
+    onClick: ((indexInTeam: Int, Penalty) -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
     FlowRow(
-        modifier = modifier.padding(horizontal = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = modifier.padding(horizontal = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        penalties.forEach { penalty ->
-            Row {
+        penalties.forEachIndexed { indexInTeam, penalty ->
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .then(if (onClick != null) Modifier.clickable { onClick(indexInTeam, penalty) } else Modifier)
+                    .padding(horizontal = 4.dp, vertical = 2.dp),
+            ) {
                 Text(
                     penaltyMark(penalty.value),
                     color = Color.Black,
@@ -415,12 +490,19 @@ private fun PenaltyCell(penalties: ImmutableList<Penalty>, modifier: Modifier = 
     }
 }
 
+/** One line of the sheet. With [onClick], tapping it opens the hand for correction. */
 @Composable
-fun HandRow(
+private fun HandRow(
     hand: Hand,
     seatLabels: ImmutableList<String>,
+    onClick: (() -> Unit)?,
 ) {
-    Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+    ) {
         HandCell(hand = hand, team = 1, seatLabels = seatLabels, modifier = Modifier.weight(1f))
         VerticalDivider()
         HandCell(hand = hand, team = 2, seatLabels = seatLabels, modifier = Modifier.weight(1f))
@@ -471,11 +553,19 @@ private fun HandCell(
     }
 }
 
+/**
+ * Scrim + centred card over the sheet. System back and a tap outside the card both dismiss
+ * it. The card rises above the keyboard and scrolls if it still doesn't fit.
+ */
 @Composable
 private fun CenteredPanel(
     onDismiss: () -> Unit,
     content: @Composable () -> Unit,
 ) {
+    NavigationBackHandler(
+        state = rememberNavigationEventState(NavigationEventInfo.None),
+        onBackCompleted = onDismiss,
+    )
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -483,12 +573,14 @@ private fun CenteredPanel(
             .clickable(
                 indication = null,
                 interactionSource = remember { MutableInteractionSource() },
-            ) { onDismiss() }, // tap outside the card to dismiss
+            ) { onDismiss() } // tap outside the card to dismiss
+            .imePadding(),
         contentAlignment = Alignment.Center,
     ) {
         Box(
             modifier = Modifier
                 .padding(24.dp)
+                .verticalScroll(rememberScrollState())
                 .clickable(
                     indication = null,
                     interactionSource = remember { MutableInteractionSource() },
@@ -499,43 +591,104 @@ private fun CenteredPanel(
     }
 }
 
-// ---------------------------------------------------------------- penalty panel
-
-private val DefaultPenaltyText = StandardPenalty.toString()
-
-/**
- * Value is pre-filled so the common case is one tap; any number can be typed instead.
- * The reason is optional and has no effect on the value.
- */
-@OptIn(ExperimentalLayoutApi::class)
+/** Card chrome shared by the hand and penalty panels. */
 @Composable
-private fun AddPenaltyPanel(
-    teamName: String,
-    onConfirm: (value: Int, label: String?) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var valueText by remember { mutableStateOf(DefaultPenaltyText) }
-    var label: String? by remember { mutableStateOf(null) }
-    val value = valueText.trim().toIntOrNull()
-    val confirm = { value?.let { onConfirm(it, label) } }
-
+private fun PanelCard(content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color.White, RoundedCornerShape(12.dp))
             .border(1.dp, Color.LightGray, RoundedCornerShape(12.dp))
             .padding(16.dp),
-    ) {
-        Text("$teamName — ceza", fontSize = 16.sp, color = Color.Black)
+        content = content,
+    )
+}
+
+/** Vazgeç / confirm, plus a "cross it out" button when correcting an existing entry. */
+@Composable
+private fun PanelButtons(
+    confirmText: String,
+    confirmEnabled: Boolean,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+    deleteText: String,
+    onDelete: (() -> Unit)?,
+) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Button(onClick = onDismiss, modifier = Modifier.weight(1f)) {
+            Text("Vazgeç")
+        }
+        Button(onClick = onConfirm, enabled = confirmEnabled, modifier = Modifier.weight(1f)) {
+            Text(confirmText)
+        }
+    }
+    if (onDelete != null) {
+        Spacer(Modifier.height(4.dp))
+        TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) {
+            Text(deleteText, color = Color.Red)
+        }
+    }
+}
+
+/**
+ * A score or penalty field: digits only — a typed "-" is dropped, as every score counts
+ * against the team. When not [enabled] it shows a fixed 0.
+ */
+@Composable
+private fun ScoreField(
+    text: String,
+    onTextChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    imeAction: ImeAction = ImeAction.Next,
+    onDone: () -> Unit = {},
+) {
+    OutlinedTextField(
+        value = if (enabled) text else "0",
+        onValueChange = { onTextChange(sanitizeScore(it)) },
+        enabled = enabled,
+        label = { Text(label) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = imeAction),
+        keyboardActions = KeyboardActions(onDone = { onDone() }),
+        modifier = modifier,
+    )
+}
+
+// ---------------------------------------------------------------- penalty panel
+
+private val DefaultPenaltyText = StandardPenalty.toString()
+
+/**
+ * Value is pre-filled so the common case is one tap; any number can be typed instead.
+ * The reason is optional and has no effect on the value. With [initial], it corrects an
+ * existing penalty and [onDelete] crosses it out.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PenaltyPanel(
+    teamName: String,
+    initial: Penalty?,
+    onConfirm: (value: Int, label: String?) -> Unit,
+    onDelete: (() -> Unit)?,
+    onDismiss: () -> Unit,
+) {
+    var valueText by remember { mutableStateOf(initial?.value?.toString() ?: DefaultPenaltyText) }
+    var label: String? by remember { mutableStateOf(initial?.label) }
+    val value = parseScore(valueText)
+    val confirm = { value?.let { onConfirm(it, label) } }
+
+    PanelCard {
+        Text(if (initial == null) "$teamName — ceza" else "$teamName — cezayı düzelt", fontSize = 16.sp, color = Color.Black)
         Spacer(Modifier.height(12.dp))
 
-        OutlinedTextField(
-            value = valueText,
-            onValueChange = { valueText = it },
-            label = { Text("Ceza puanı") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { confirm() }),
+        ScoreField(
+            text = valueText,
+            onTextChange = { valueText = it },
+            label = "Ceza puanı",
+            imeAction = ImeAction.Done,
+            onDone = { confirm() },
             modifier = Modifier.fillMaxWidth(),
         )
 
@@ -561,49 +714,53 @@ private fun AddPenaltyPanel(
 
         Spacer(Modifier.height(16.dp))
 
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Button(onClick = onDismiss, modifier = Modifier.weight(1f)) {
-                Text("Vazgeç")
-            }
-            Button(
-                onClick = { confirm() },
-                enabled = value != null,
-                modifier = Modifier.weight(1f),
-            ) {
-                Text("Ekle")
-            }
-        }
+        PanelButtons(
+            confirmText = if (initial == null) "Ekle" else "Kaydet",
+            confirmEnabled = value != null,
+            onConfirm = { confirm() },
+            onDismiss = onDismiss,
+            deleteText = "Bu cezayı sil",
+            onDelete = onDelete,
+        )
     }
 }
 
-// ---------------------------------------------------------------- add-hand panel
+// ---------------------------------------------------------------- hand panel
 
 /**
- * Inline result-entry panel — same page as YazBozScreen, no sheet, no navigation.
- * [draftHand] is a plain [Hand] being filled in locally in YazBozScreen; every tap
- * here just produces an updated copy via [onDraftChanged]. Nothing reaches the
- * ViewModel until the screen's own onConfirm fires.
+ * Writes a new hand, or corrects one when [isCorrection] ([onDelete] then crosses it out).
+ * The draft lives here until confirm; nothing reaches the ViewModel before that.
  *
  * [playerNames] is indexed by seat: 0,1 = team 1; 2,3 = team 2.
  */
 @Composable
-private fun AddHandPanel(
-    draftHand: Hand,
+private fun HandPanel(
+    initial: Hand,
+    isCorrection: Boolean,
     playerNames: ImmutableList<String>,
-    onDraftChanged: (Hand) -> Unit,
-    onConfirm: () -> Unit,
+    onConfirm: (Hand) -> Unit,
+    onDelete: (() -> Unit)?,
     onDismiss: () -> Unit,
 ) {
-    val team1Locked = draftHand.finishingTeam == 1
-    val team2Locked = draftHand.finishingTeam == 2
+    var finisherSeat: Int? by remember { mutableStateOf(initial.finisherSeat) }
+    var openerSeats: Set<Int> by remember { mutableStateOf(initial.openerSeats.toSet()) }
+    var score1 by remember { mutableStateOf(scoreText(initial.scoreTeam1)) }
+    var score2 by remember { mutableStateOf(scoreText(initial.scoreTeam2)) }
+    val finishingTeam = finisherSeat?.let(::teamOfSeat)
 
-    Column(
-        modifier = Modifier
-            .background(Color.White, RoundedCornerShape(12.dp))
-            .border(1.dp, Color.LightGray, RoundedCornerShape(12.dp))
-            .padding(16.dp),
-    ) {
-        Text("El sonucu", fontSize = 16.sp, color = Color.Black)
+    val confirm = {
+        onConfirm(
+            Hand(
+                scoreTeam1 = parseScore(score1) ?: 0,
+                scoreTeam2 = parseScore(score2) ?: 0,
+                finisherSeat = finisherSeat,
+                openerSeats = openerSeats.sorted().toImmutableList(),
+            ),
+        )
+    }
+
+    PanelCard {
+        Text(if (isCorrection) "Eli düzelt" else "El sonucu", fontSize = 16.sp, color = Color.Black)
         Spacer(Modifier.height(12.dp))
 
         Text("Kim bitirdi?", fontSize = 12.sp, color = Color.Gray)
@@ -612,13 +769,9 @@ private fun AddHandPanel(
             playerNames.forEachIndexed { seat, name ->
                 NameChip(
                     label = name,
-                    selected = draftHand.finisherSeat == seat,
-                    onClick = {
-                        // Tap the same finisher again to clear it.
-                        onDraftChanged(
-                            draftHand.copy(finisherSeat = seat.takeUnless { draftHand.finisherSeat == seat }),
-                        )
-                    },
+                    selected = finisherSeat == seat,
+                    // Tap the same finisher again to clear it.
+                    onClick = { finisherSeat = seat.takeUnless { finisherSeat == seat } },
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -630,13 +783,16 @@ private fun AddHandPanel(
         Spacer(Modifier.height(6.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             playerNames.forEachIndexed { seat, name ->
-                val opened = seat in draftHand.openerSeats
+                // The finisher opened — they couldn't have finished otherwise — so their chip
+                // stays ticked while they're the finisher.
+                val isFinisher = seat == finisherSeat
                 NameChip(
                     label = name,
-                    selected = opened,
+                    selected = isFinisher || seat in openerSeats,
                     onClick = {
-                        val updated = if (opened) draftHand.openerSeats - seat else draftHand.openerSeats + seat
-                        onDraftChanged(draftHand.copy(openerSeats = updated.sorted().toImmutableList()))
+                        if (!isFinisher) {
+                            openerSeats = if (seat in openerSeats) openerSeats - seat else openerSeats + seat
+                        }
                     },
                     modifier = Modifier.weight(1f),
                 )
@@ -646,40 +802,34 @@ private fun AddHandPanel(
         Spacer(Modifier.height(16.dp))
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedTextField(
-                value = if (team1Locked) "0" else draftHand.scoreTeam1.takeIf { it != 0 }?.toString().orEmpty(),
-                onValueChange = { text ->
-                    onDraftChanged(draftHand.copy(scoreTeam1 = text.toIntOrNull() ?: 0))
-                },
-                enabled = !team1Locked,
-                label = { Text("1. takım") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            ScoreField(
+                text = score1,
+                onTextChange = { score1 = it },
+                label = "1. takım",
+                enabled = finishingTeam != 1,
                 modifier = Modifier.weight(1f),
             )
-            OutlinedTextField(
-                value = if (team2Locked) "0" else draftHand.scoreTeam2.takeIf { it != 0 }?.toString().orEmpty(),
-                onValueChange = { text ->
-                    onDraftChanged(draftHand.copy(scoreTeam2 = text.toIntOrNull() ?: 0))
-                },
-                enabled = !team2Locked,
-                label = { Text("2. takım") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            ScoreField(
+                text = score2,
+                onTextChange = { score2 = it },
+                label = "2. takım",
+                enabled = finishingTeam != 2,
+                imeAction = ImeAction.Done,
+                onDone = { confirm() },
                 modifier = Modifier.weight(1f),
             )
         }
 
         Spacer(Modifier.height(16.dp))
 
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Button(onClick = onDismiss, modifier = Modifier.weight(1f)) {
-                Text("Vazgeç")
-            }
-            Button(onClick = onConfirm, modifier = Modifier.weight(1f)) {
-                Text("Ekle")
-            }
-        }
+        PanelButtons(
+            confirmText = if (isCorrection) "Kaydet" else "Ekle",
+            confirmEnabled = true,
+            onConfirm = { confirm() },
+            onDismiss = onDismiss,
+            deleteText = "Bu eli sil",
+            onDelete = onDelete,
+        )
     }
 }
 

@@ -1,5 +1,7 @@
 package com.kg.yazzbozz.domain
 
+import kotlin.math.absoluteValue
+
 /** Lower total wins (scores on a yazboz are points against); a tie has no winner. */
 fun winningTeam(totalTeam1: Int, totalTeam2: Int): Int? = when {
     totalTeam1 < totalTeam2 -> 1
@@ -70,14 +72,15 @@ data class CountStep(
 /**
  * What gets counted, in order: team 1's hands then its penalties, then team 2's. Hands where
  * the team wrote 0 are skipped — they don't move the total and would only slow the count.
+ * Every step adds, as in [GameRecord.total]: a negative number counts as positive.
  */
 fun GameRecord.countSteps(): List<CountStep> = listOf(1, 2).flatMap { team ->
     val handSteps = hands
-        .map { if (team == 1) it.scoreTeam1 else it.scoreTeam2 }
+        .map { (if (team == 1) it.scoreTeam1 else it.scoreTeam2).absoluteValue }
         .filter { it != 0 }
         .map { CountStep(team = team, delta = it, isPenalty = false) }
     val penaltySteps = penalties
         .filter { it.team == team }
-        .map { CountStep(team = team, delta = it.value, isPenalty = true, label = it.label) }
+        .map { CountStep(team = team, delta = it.value.absoluteValue, isPenalty = true, label = it.label) }
     handSteps + penaltySteps
 }

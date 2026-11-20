@@ -55,6 +55,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.compose.NavigationBackHandler
+import androidx.navigationevent.compose.rememberNavigationEventState
 import com.kg.yazzbozz.domain.CountStep
 import com.kg.yazzbozz.domain.DayTitle
 import com.kg.yazzbozz.domain.PlayerRank
@@ -80,8 +83,14 @@ private val Dim = Color.White.copy(alpha = 0.55f)
 fun ScoreRevealScene(
     state: ScoreRevealState,
     onClose: () -> Unit,
+    onSkip: () -> Unit,
 ) {
     LightSystemBarIcons()
+    // Back skips the count to the ranking, then closes the scene — it never leaves the app.
+    NavigationBackHandler(
+        state = rememberNavigationEventState(NavigationEventInfo.None),
+        onBackCompleted = { if (state.phase == RevealPhase.Ranking) onClose() else onSkip() },
+    )
     BoxWithConstraints(
         Modifier
             .fillMaxSize()

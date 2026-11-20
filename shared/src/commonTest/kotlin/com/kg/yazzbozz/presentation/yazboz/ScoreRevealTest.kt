@@ -80,6 +80,20 @@ class ScoreRevealTest {
     }
 
     @Test
+    fun skippingMidCountLandsOnFinalTotalsAndRanking() = runSync {
+        val record = game(hands = listOf(Hand(scoreTeam1 = 300, scoreTeam2 = 120), Hand(scoreTeam1 = 5, scoreTeam2 = 7)))
+        val (frames, _) = play(record)
+        val midCount = frames.first { it.phase == RevealPhase.Counting && it.lastStep != null }
+
+        val skipped = midCount.skippedToEnd()
+        assertEquals(305 to 127, skipped.shownTotal1 to skipped.shownTotal2)
+        assertEquals(RevealPhase.Ranking, skipped.phase)
+        assertEquals(null, skipped.countingTeam)
+        assertEquals(null, skipped.lastStep)
+        assertEquals(2, skipped.winningTeam)
+    }
+
+    @Test
     fun aVeryLongGameStillStaysUnderHalfAMinute() = runSync {
         val hands = List(40) { Hand(scoreTeam1 = 10 + it, scoreTeam2 = 20 + it) }
         val (_, waited) = play(game(hands))

@@ -12,6 +12,9 @@ import com.kg.yazzbozz.domain.Penalty
 import com.kg.yazzbozz.domain.PlayerName
 import com.kg.yazzbozz.domain.cleanName
 import com.kg.yazzbozz.domain.countSteps
+import com.kg.yazzbozz.domain.normalized
+import com.kg.yazzbozz.domain.withHand
+import com.kg.yazzbozz.domain.withPenalty
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
@@ -66,18 +69,24 @@ class YazzBozzViewModel(
 
     fun onConfirmHand(hand: Hand) {
         val current = game?.takeUnless { it.isFinished } ?: return
-        // The finishing team's field is locked to 0 in the panel; store what it shows.
-        val written = when (hand.finishingTeam) {
-            1 -> hand.copy(scoreTeam1 = 0)
-            2 -> hand.copy(scoreTeam2 = 0)
-            else -> hand
-        }
-        update(current.copy(hands = current.hands + written))
+        update(current.copy(hands = current.hands + hand.normalized()))
+    }
+
+    /** Corrects hand [index], or crosses it out when [hand] is null. Only while the game is open. */
+    fun onEditHand(index: Int, hand: Hand?) {
+        val current = game?.takeUnless { it.isFinished } ?: return
+        update(current.withHand(index, hand?.normalized()))
     }
 
     fun onAddPenalty(team: Int, value: Int, label: String? = null) {
         val current = game?.takeUnless { it.isFinished } ?: return
         update(current.copy(penalties = current.penalties + Penalty(team = team, value = value, label = label)))
+    }
+
+    /** Corrects [team]'s [indexInTeam]-th penalty, or crosses it out when [penalty] is null. */
+    fun onEditPenalty(team: Int, indexInTeam: Int, penalty: Penalty?) {
+        val current = game?.takeUnless { it.isFinished } ?: return
+        update(current.withPenalty(team, indexInTeam, penalty))
     }
 
     fun onFinishClicked() {
@@ -98,6 +107,14 @@ class YazzBozzViewModel(
     /** Only offered once the ranking is up; the count itself always plays to the end. */
     fun onRevealClosed() {
         clearReveal()
+    }
+
+    /** System back mid-count: skip to the final totals and ranking rather than leave the app. */
+    fun onRevealSkipped() {
+        val current = reveal ?: return
+        revealJob?.cancel()
+        revealJob = null
+        reveal = current.skippedToEnd()
     }
 
     private fun clearReveal() {
