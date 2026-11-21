@@ -2,6 +2,7 @@ package com.kg.yazzbozz.domain
 
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlin.math.absoluteValue
 
 /**
  * A yazboz sheet. Everything in it is what the players wrote down — the app only stores,
@@ -21,9 +22,13 @@ data class GameRecord(
 ) {
     val isFinished: Boolean get() = finishedAt != null
 
+    /**
+     * Every number on a yazboz is points against, so a minus written in front of one doesn't
+     * lower the total — it's counted as positive like the rest (the higher total loses).
+     */
     fun total(team: Int): Int =
-        hands.sumOf { if (team == 1) it.scoreTeam1 else it.scoreTeam2 } +
-            penalties.filter { it.team == team }.sumOf { it.value }
+        hands.sumOf { (if (team == 1) it.scoreTeam1 else it.scoreTeam2).absoluteValue } +
+            penalties.filter { it.team == team }.sumOf { it.value.absoluteValue }
 }
 
 /** A finished game as listed in the history; totals are the ones stored at "Bitir". */

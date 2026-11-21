@@ -49,6 +49,15 @@ internal fun GameRecord.startReveal(ranking: ImmutableList<PlayerRank>) = ScoreR
     ranking = ranking,
 )
 
+/** Back during the count: jump straight to the final totals with the ranking up. */
+internal fun ScoreRevealState.skippedToEnd() = copy(
+    shownTotal1 = finalTotal1,
+    shownTotal2 = finalTotal2,
+    countingTeam = null,
+    lastStep = null,
+    phase = RevealPhase.Ranking,
+)
+
 private const val IntroMillis = 800L
 private const val TeamBudgetMillis = 6_500L
 private const val MinStepMillis = 260L

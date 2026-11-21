@@ -6,6 +6,7 @@ import com.kg.yazzbozz.domain.Penalty
 import com.kg.yazzbozz.domain.PlayerRank
 import com.kg.yazzbozz.domain.chipNames
 import com.kg.yazzbozz.domain.dayRanking
+import com.kg.yazzbozz.domain.opened
 import com.kg.yazzbozz.domain.seatLabels
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -36,7 +37,7 @@ fun GameRecord.toUiState(): YazBozUiState {
     val seats = players.indices
     val names = players.map { it.displayName }
     val finishCounts = seats.map { seat -> hands.count { it.finisherSeat == seat } }
-    val openingCounts = seats.map { seat -> hands.count { seat in it.openerSeats } }
+    val openingCounts = seats.map { seat -> hands.count { it.opened(seat) } }
     return YazBozUiState(
         team1Name = team1Name,
         team2Name = team2Name,
