@@ -5,12 +5,14 @@ import com.kg.yazzbozz.data.local.GameEntity
 import com.kg.yazzbozz.data.local.GamePlayerEntity
 import com.kg.yazzbozz.data.local.HandEntity
 import com.kg.yazzbozz.data.local.PenaltyEntity
+import com.kg.yazzbozz.domain.FinishKind
 import com.kg.yazzbozz.domain.GameRecord
 import com.kg.yazzbozz.domain.GameSummary
 import com.kg.yazzbozz.domain.Hand
 import com.kg.yazzbozz.domain.Penalty
 import com.kg.yazzbozz.domain.PlayerName
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -130,6 +132,7 @@ private fun Hand.toEntity(gameId: String, position: Int) = HandEntity(
     scoreTeam2 = scoreTeam2,
     finisherSeat = finisherSeat,
     openerSeats = openerSeats.joinToString(","),
+    finishKinds = finishKinds.joinToString(",") { it.name },
 )
 
 private fun HandEntity.toHand() = Hand(
@@ -137,6 +140,7 @@ private fun HandEntity.toHand() = Hand(
     scoreTeam2 = scoreTeam2,
     finisherSeat = finisherSeat,
     openerSeats = openerSeats.split(",").mapNotNull { it.toIntOrNull() }.toImmutableList(),
+    finishKinds = finishKinds.split(",").mapNotNull { name -> FinishKind.entries.find { it.name == name } }.toImmutableSet(),
 )
 
 private fun Penalty.toEntity(gameId: String, position: Int) = PenaltyEntity(

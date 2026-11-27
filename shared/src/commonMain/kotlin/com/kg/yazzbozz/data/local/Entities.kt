@@ -1,5 +1,6 @@
 package com.kg.yazzbozz.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -39,6 +40,9 @@ data class HandEntity(
     val finisherSeat: Int?,
     /** Comma-separated seats, e.g. "0,3". */
     val openerSeats: String,
+    /** Comma-separated FinishKind names, e.g. "Elden,Okey"; empty = normal finish (and every v1 hand). */
+    @ColumnInfo(defaultValue = "")
+    val finishKinds: String = "",
 )
 
 @Entity(tableName = "penalties", primaryKeys = ["gameId", "position"])

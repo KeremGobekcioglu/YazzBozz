@@ -1,10 +1,13 @@
 package com.kg.yazzbozz.domain
 
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
 
 /**
  * A hand as it goes on the sheet: the finishing team wrote 0, and the finisher is among the
- * openers — nobody finishes without having opened, whether or not it was ticked.
+ * openers — nobody finishes without having opened, whether or not it was ticked. A finish
+ * kind needs a finisher, and Elden wins over Çifte if both slipped through.
  */
 fun Hand.normalized(): Hand {
     val zeroed = when (finishingTeam) {
@@ -12,9 +15,11 @@ fun Hand.normalized(): Hand {
         2 -> copy(scoreTeam2 = 0)
         else -> this
     }
-    val finisher = finisherSeat ?: return zeroed
-    if (finisher in openerSeats) return zeroed
-    return zeroed.copy(openerSeats = (openerSeats + finisher).sorted().toImmutableList())
+    val finisher = finisherSeat ?: return zeroed.copy(finishKinds = persistentSetOf())
+    val kinds = if (FinishKind.Elden in finishKinds) finishKinds - FinishKind.Cifte else finishKinds
+    val withKinds = zeroed.copy(finishKinds = kinds.toImmutableSet())
+    if (finisher in openerSeats) return withKinds
+    return withKinds.copy(openerSeats = (openerSeats + finisher).sorted().toImmutableList())
 }
 
 /** Whether [seat] opened in this hand. The finisher always did, so older sheets count right too. */

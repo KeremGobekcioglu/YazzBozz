@@ -1,6 +1,7 @@
 package com.kg.yazzbozz.domain
 
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -24,6 +25,54 @@ class ResultsTest {
         assertEquals(listOf("Ali", "Ayşe", "Kerem", "Fatma"), ranking.map { it.name })
         assertEquals(listOf(5, 4, 3, 0), ranking.map { it.score })
         assertEquals(listOf(DayTitle.Carrier, null, null, DayTitle.Rat), ranking.map { it.title })
+    }
+
+    @Test
+    fun eachFinishKindDoublesTheFinish() {
+        fun points(vararg kinds: FinishKind) = Hand(finisherSeat = 0, finishKinds = persistentSetOf(*kinds)).finishPoints
+        assertEquals(2, points())
+        assertEquals(4, points(FinishKind.Elden))
+        assertEquals(4, points(FinishKind.Cifte))
+        assertEquals(8, points(FinishKind.Elden, FinishKind.Okey))
+        assertEquals(0, Hand().finishPoints)
+    }
+
+    @Test
+    fun rankingUsesFinishPointsWhenGiven() {
+        val ranking = dayRanking(
+            names = listOf("A", "B", "C", "D"),
+            openings = listOf(1, 1, 0, 0),
+            finishes = listOf(1, 1, 0, 0),
+            finishPoints = listOf(2, 8, 0, 0),
+        )
+        assertEquals(listOf("B", "A", "C", "D"), ranking.map { it.name })
+        assertEquals(listOf(9, 3, 0, 0), ranking.map { it.score })
+        assertEquals(listOf(1, 1, 0, 0), ranking.map { it.finishes })
+    }
+
+    @Test
+    fun handGapsShowEachHandAndTheRunningGap() {
+        val game = GameRecord(
+            id = "g",
+            startedAt = 0,
+            team1Name = "Biz",
+            team2Name = "Onlar",
+            players = listOf(PlayerName("K"), PlayerName("A"), PlayerName("Y"), PlayerName("F")),
+            hands = listOf(
+                Hand(scoreTeam1 = 0, scoreTeam2 = 87),
+                Hand(scoreTeam1 = 132, scoreTeam2 = -20), // -20 counts as 20
+                Hand(scoreTeam1 = 25, scoreTeam2 = 25),
+            ),
+            penalties = listOf(Penalty(1, 100)), // not part of any hand
+        )
+        assertEquals(
+            listOf(
+                HandGap(gap = 87, aheadTeam = 1, runningGap = 87, runningAheadTeam = 1),
+                HandGap(gap = 112, aheadTeam = 2, runningGap = 25, runningAheadTeam = 2),
+                HandGap(gap = 0, aheadTeam = null, runningGap = 25, runningAheadTeam = 2),
+            ),
+            game.handGaps(),
+        )
     }
 
     @Test

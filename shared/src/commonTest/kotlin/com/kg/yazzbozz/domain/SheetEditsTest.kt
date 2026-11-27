@@ -1,6 +1,7 @@
 package com.kg.yazzbozz.domain
 
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
@@ -58,6 +59,24 @@ class SheetEditsTest {
     fun finisherCountsAsOpenerEvenOnOldSheets() {
         val oldHand = Hand(finisherSeat = 2, openerSeats = persistentListOf(0))
         assertEquals(listOf(true, false, true, false), (0..3).map { oldHand.opened(it) })
+    }
+
+    @Test
+    fun finishKindsAreDroppedWithoutAFinisher() {
+        val hand = Hand(finishKinds = persistentSetOf(FinishKind.Elden)).normalized()
+        assertTrue(hand.finishKinds.isEmpty())
+    }
+
+    @Test
+    fun eldenAndCifteCantBothStand() {
+        val hand = Hand(finisherSeat = 0, finishKinds = persistentSetOf(FinishKind.Elden, FinishKind.Cifte, FinishKind.Okey)).normalized()
+        assertEquals(setOf(FinishKind.Elden, FinishKind.Okey), hand.finishKinds)
+    }
+
+    @Test
+    fun cifteWithOkeyIsKept() {
+        val hand = Hand(finisherSeat = 3, finishKinds = persistentSetOf(FinishKind.Cifte, FinishKind.Okey)).normalized()
+        assertEquals(setOf(FinishKind.Cifte, FinishKind.Okey), hand.finishKinds)
     }
 
     // ------------------------------------------------------------ hands

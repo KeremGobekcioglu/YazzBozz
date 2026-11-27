@@ -2,10 +2,13 @@ package com.kg.yazzbozz.presentation.yazboz
 
 import com.kg.yazzbozz.domain.GameRecord
 import com.kg.yazzbozz.domain.Hand
+import com.kg.yazzbozz.domain.HandGap
 import com.kg.yazzbozz.domain.Penalty
 import com.kg.yazzbozz.domain.PlayerRank
 import com.kg.yazzbozz.domain.chipNames
 import com.kg.yazzbozz.domain.dayRanking
+import com.kg.yazzbozz.domain.finishPoints
+import com.kg.yazzbozz.domain.handGaps
 import com.kg.yazzbozz.domain.opened
 import com.kg.yazzbozz.domain.seatLabels
 import kotlinx.collections.immutable.ImmutableList
@@ -27,8 +30,10 @@ data class YazBozUiState(
     val finishCounts: ImmutableList<Int> = persistentListOf(),
     val openingCounts: ImmutableList<Int> = persistentListOf(),
     val hands: ImmutableList<Hand> = persistentListOf(),
-    /** Players by openings + 2 × finishes, with the day's titles. */
+    /** Players by openings + finish points (2, doubled per elden/okey/çifte), with the day's titles. */
     val ranking: ImmutableList<PlayerRank> = persistentListOf(),
+    /** One per hand, same order as [hands]. */
+    val handGaps: ImmutableList<HandGap> = persistentListOf(),
 ) {
     val hasEntries: Boolean get() = hands.isNotEmpty() || penaltiesTeam1.isNotEmpty() || penaltiesTeam2.isNotEmpty()
 }
@@ -38,6 +43,7 @@ fun GameRecord.toUiState(): YazBozUiState {
     val names = players.map { it.displayName }
     val finishCounts = seats.map { seat -> hands.count { it.finisherSeat == seat } }
     val openingCounts = seats.map { seat -> hands.count { it.opened(seat) } }
+    val finishPoints = seats.map { seat -> hands.filter { it.finisherSeat == seat }.sumOf { it.finishPoints } }
     return YazBozUiState(
         team1Name = team1Name,
         team2Name = team2Name,
@@ -52,6 +58,7 @@ fun GameRecord.toUiState(): YazBozUiState {
         finishCounts = finishCounts.toImmutableList(),
         openingCounts = openingCounts.toImmutableList(),
         hands = hands.toImmutableList(),
-        ranking = dayRanking(names, openingCounts, finishCounts).toImmutableList(),
+        ranking = dayRanking(names, openingCounts, finishCounts, finishPoints).toImmutableList(),
+        handGaps = handGaps().toImmutableList(),
     )
 }

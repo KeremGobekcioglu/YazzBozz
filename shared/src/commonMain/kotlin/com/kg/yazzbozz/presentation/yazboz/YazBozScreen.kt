@@ -59,13 +59,18 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kg.yazzbozz.domain.DayTitle
+import com.kg.yazzbozz.domain.FinishKind
 import com.kg.yazzbozz.domain.Hand
+import com.kg.yazzbozz.domain.HandGap
+import com.kg.yazzbozz.domain.excludes
 import com.kg.yazzbozz.domain.Penalty
 import com.kg.yazzbozz.domain.PenaltyReasons
 import com.kg.yazzbozz.domain.turkishLowercase
 import com.kg.yazzbozz.domain.teamOfSeat
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
+import kotlin.math.absoluteValue
 
 private val ScreenTextSize = 21.sp
 
@@ -168,6 +173,7 @@ fun YazBozScreen(
                     HandRow(
                         hand = hand,
                         seatLabels = uiState.seatLabels,
+                        gap = if (uiState.isFinished) uiState.handGaps.getOrNull(index) else null,
                         onClick = if (editable) {
                             { handEditor = HandEditor(index = index, initial = hand) }
                         } else {
@@ -394,6 +400,8 @@ private fun ResultsContent(uiState: YazBozUiState) {
                 Text(uiState.totalScoreTeam2.toString(), color = Color.Black, fontSize = 18.sp)
             }
             PenaltySummary(uiState.penaltiesTeam2)
+            Spacer(Modifier.height(8.dp))
+            TotalGapLine(uiState)
             Spacer(Modifier.height(16.dp))
             HorizontalDivider()
             Spacer(Modifier.height(12.dp))
@@ -406,7 +414,7 @@ private fun ResultsContent(uiState: YazBozUiState) {
                 Text("Bitiş", modifier = Modifier.weight(1f), color = Color.Black, textAlign = TextAlign.Center)
                 Text("Puan", modifier = Modifier.weight(1f), color = Color.Black, textAlign = TextAlign.Center)
             }
-            Text("Puan = açış + 2 × bitiş", color = Color.Gray, fontSize = 11.sp)
+            Text(RankingFormula, color = Color.Gray, fontSize = 11.sp)
             Spacer(Modifier.height(8.dp))
         }
 
@@ -429,6 +437,25 @@ private fun ResultsContent(uiState: YazBozUiState) {
             }
         }
     }
+}
+
+/** Shown under the ranking header here and in the reveal scene. */
+internal const val RankingFormula = "Puan = açış + 2 × bitiş · elden / okey / çifte ×2"
+
+/** How far apart the final totals are, penalties included. */
+@Composable
+private fun TotalGapLine(uiState: YazBozUiState) {
+    val gap = (uiState.totalScoreTeam1 - uiState.totalScoreTeam2).absoluteValue
+    val leader = when {
+        uiState.totalScoreTeam1 < uiState.totalScoreTeam2 -> uiState.team1Name
+        uiState.totalScoreTeam2 < uiState.totalScoreTeam1 -> uiState.team2Name
+        else -> null
+    }
+    Text(
+        if (leader == null) "Fark: 0 — berabere" else "Fark: $gap — $leader önde",
+        color = Color.Black,
+        fontSize = 15.sp,
+    )
 }
 
 @Composable
@@ -490,11 +517,15 @@ private fun PenaltyCell(
     }
 }
 
-/** One line of the sheet. With [onClick], tapping it opens the hand for correction. */
+/**
+ * One line of the sheet. With [onClick], tapping it opens the hand for correction. With [gap]
+ * (finished games) the middle line carries the hand's gap instead of a plain divider.
+ */
 @Composable
 private fun HandRow(
     hand: Hand,
     seatLabels: ImmutableList<String>,
+    gap: HandGap?,
     onClick: (() -> Unit)?,
 ) {
     Row(
@@ -504,8 +535,46 @@ private fun HandRow(
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
     ) {
         HandCell(hand = hand, team = 1, seatLabels = seatLabels, modifier = Modifier.weight(1f))
-        VerticalDivider()
+        if (gap != null) GapMarker(gap) else VerticalDivider()
         HandCell(hand = hand, team = 2, seatLabels = seatLabels, modifier = Modifier.weight(1f))
+    }
+}
+
+/** "‹" points at team 1 (left), "›" at team 2 — whoever came out ahead, i.e. wrote less. */
+private fun gapText(gap: Int, aheadTeam: Int?): String = when (aheadTeam) {
+    1 -> "‹ $gap"
+    2 -> "$gap ›"
+    else -> "="
+}
+
+/**
+ * Sits on the paper's middle line: the hand's gap in a pill, the running gap under it.
+ * Both are opaque so they cover the line drawn behind the sheet.
+ */
+@Composable
+private fun GapMarker(gap: HandGap) {
+    Column(
+        modifier = Modifier.width(64.dp).fillMaxHeight(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            gapText(gap.gap, gap.aheadTeam),
+            color = Color.Black,
+            fontSize = 13.sp,
+            maxLines = 1,
+            modifier = Modifier
+                .background(Color.White, RoundedCornerShape(percent = 50))
+                .border(1.dp, Color.Gray, RoundedCornerShape(percent = 50))
+                .padding(horizontal = 6.dp, vertical = 1.dp),
+        )
+        Text(
+            "Σ " + gapText(gap.runningGap, gap.runningAheadTeam),
+            color = Color.Gray,
+            fontSize = 10.sp,
+            maxLines = 1,
+            modifier = Modifier.background(Color.White).padding(horizontal = 2.dp),
+        )
     }
 }
 
@@ -548,6 +617,14 @@ private fun HandCell(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(text = label, color = Color.Black, fontSize = ScreenTextSize)
+            }
+            if (hand.finishKinds.isNotEmpty()) {
+                Text(
+                    text = FinishKind.entries.filter { it in hand.finishKinds }.joinToString("") { it.mark },
+                    color = Color.Gray,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(start = 3.dp),
+                )
             }
         }
     }
@@ -743,6 +820,7 @@ private fun HandPanel(
     onDismiss: () -> Unit,
 ) {
     var finisherSeat: Int? by remember { mutableStateOf(initial.finisherSeat) }
+    var finishKinds: Set<FinishKind> by remember { mutableStateOf(initial.finishKinds.toSet()) }
     var openerSeats: Set<Int> by remember { mutableStateOf(initial.openerSeats.toSet()) }
     var score1 by remember { mutableStateOf(scoreText(initial.scoreTeam1)) }
     var score2 by remember { mutableStateOf(scoreText(initial.scoreTeam2)) }
@@ -755,6 +833,7 @@ private fun HandPanel(
                 scoreTeam2 = parseScore(score2) ?: 0,
                 finisherSeat = finisherSeat,
                 openerSeats = openerSeats.sorted().toImmutableList(),
+                finishKinds = finishKinds.toImmutableSet(),
             ),
         )
     }
@@ -771,9 +850,35 @@ private fun HandPanel(
                     label = name,
                     selected = finisherSeat == seat,
                     // Tap the same finisher again to clear it.
-                    onClick = { finisherSeat = seat.takeUnless { finisherSeat == seat } },
+                    onClick = {
+                        finisherSeat = seat.takeUnless { finisherSeat == seat }
+                        if (finisherSeat == null) finishKinds = emptySet()
+                    },
                     modifier = Modifier.weight(1f),
                 )
+            }
+        }
+
+        if (finisherSeat != null) {
+            Spacer(Modifier.height(12.dp))
+            Text("Nasıl bitti? (boş = normal)", fontSize = 12.sp, color = Color.Gray)
+            Spacer(Modifier.height(6.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FinishKind.entries.forEach { kind ->
+                    NameChip(
+                        label = kind.label,
+                        selected = kind in finishKinds,
+                        onClick = {
+                            finishKinds = if (kind in finishKinds) {
+                                finishKinds - kind
+                            } else {
+                                // Elden and Çifte can't go together: picking one drops the other.
+                                finishKinds.filterNot { it.excludes(kind) }.toSet() + kind
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
         }
 

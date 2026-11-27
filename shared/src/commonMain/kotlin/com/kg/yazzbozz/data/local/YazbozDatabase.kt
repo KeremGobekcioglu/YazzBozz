@@ -1,5 +1,6 @@
 package com.kg.yazzbozz.data.local
 
+import androidx.room.AutoMigration
 import androidx.room.ConstructedBy
 import androidx.room.Database
 import androidx.room.RoomDatabase
@@ -10,7 +11,9 @@ import kotlinx.coroutines.IO
 
 @Database(
     entities = [GameEntity::class, GamePlayerEntity::class, HandEntity::class, PenaltyEntity::class],
-    version = 1,
+    version = 2,
+    // v2: hands.finishKinds
+    autoMigrations = [AutoMigration(from = 1, to = 2)],
 )
 @ConstructedBy(YazbozDatabaseConstructor::class)
 abstract class YazbozDatabase : RoomDatabase() {

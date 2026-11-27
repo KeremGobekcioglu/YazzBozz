@@ -1,7 +1,9 @@
 package com.kg.yazzbozz.domain
 
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 import kotlin.math.absoluteValue
 
 /**
@@ -55,9 +57,22 @@ data class Hand(
     val scoreTeam2: Int = 0,
     val finisherSeat: Int? = null,
     val openerSeats: ImmutableList<Int> = persistentListOf(),
+    /** How the finisher finished; empty is a normal finish. Only meaningful with a [finisherSeat]. */
+    val finishKinds: ImmutableSet<FinishKind> = persistentSetOf(),
 ) {
     val finishingTeam: Int? get() = finisherSeat?.let(::teamOfSeat)
 }
+
+/** Each kind doubles the finish in the day's ranking; Okey combines with Elden or Çifte. */
+enum class FinishKind(val label: String, val mark: String) {
+    Elden("Elden", "E"),
+    Okey("Okey", "O"),
+    Cifte("Çifte", "Ç"),
+}
+
+/** Elden and Çifte can't both be true of one finish. */
+fun FinishKind.excludes(other: FinishKind): Boolean =
+    setOf(this, other) == setOf(FinishKind.Elden, FinishKind.Cifte)
 
 /** [label] is only a note of why, as on paper; it never affects [value]. */
 data class Penalty(
@@ -72,6 +87,11 @@ val PenaltyReasons: List<String> = listOf(
     "Okey atma",
     "Elde okey kalması",
     "Yanlış açma",
+    "Bitti",
+    "Okey çaldı",
+    "Elden bitti",
+    "Okey bitti",
+    "Çifte bitti",
     "Diğer",
 )
 

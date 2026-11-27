@@ -1,11 +1,13 @@
 package com.kg.yazzbozz.presentation.yazboz
 
+import com.kg.yazzbozz.domain.FinishKind
 import com.kg.yazzbozz.domain.GameRecord
 import com.kg.yazzbozz.domain.Hand
 import com.kg.yazzbozz.domain.Penalty
 import com.kg.yazzbozz.domain.PlayerName
 import com.kg.yazzbozz.domain.winningTeam
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -60,5 +62,25 @@ class YazBozUiStateTest {
         val state = game.toUiState()
         assertEquals(listOf(100, 101), state.penaltiesTeam1.map { it.value })
         assertEquals(listOf(37), state.penaltiesTeam2.map { it.value })
+    }
+
+    @Test
+    fun specialFinishesDoubleTheFinishersRankingPoints() {
+        val hands = listOf(
+            Hand(scoreTeam2 = 40, finisherSeat = 0, finishKinds = persistentSetOf(FinishKind.Elden, FinishKind.Okey)),
+            Hand(scoreTeam2 = 40, finisherSeat = 0),
+            Hand(scoreTeam1 = 40, finisherSeat = 2, finishKinds = persistentSetOf(FinishKind.Cifte)),
+        )
+        val ranking = game.copy(hands = hands, penalties = emptyList()).toUiState().ranking.associateBy { it.seat }
+        assertEquals(2, ranking.getValue(0).finishes)
+        assertEquals(2 + 8 + 2, ranking.getValue(0).score) // opened twice + 8 + 2
+        assertEquals(1 + 4, ranking.getValue(2).score)
+    }
+
+    @Test
+    fun thereIsOneGapPerHand() {
+        val state = game.toUiState()
+        assertEquals(state.hands.size, state.handGaps.size)
+        assertEquals(87, state.handGaps[0].gap)
     }
 }

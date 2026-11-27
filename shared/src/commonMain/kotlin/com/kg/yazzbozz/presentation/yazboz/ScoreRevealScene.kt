@@ -326,7 +326,7 @@ private fun RankingPanel(ranking: List<PlayerRank>, onClose: () -> Unit, modifie
                 }
             }
         }
-        Text("Puan = açış + 2 × bitiş", color = Dim, fontSize = 11.sp)
+        Text(RankingFormula, color = Dim, fontSize = 11.sp)
         Spacer(Modifier.height(8.dp))
         TextButton(onClick = onClose, modifier = Modifier.align(Alignment.CenterHorizontally)) {
             Text("Yazboza dön", color = Gold, fontSize = 16.sp)

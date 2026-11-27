@@ -3,12 +3,14 @@ package com.kg.yazzbozz.data
 import androidx.room.Room
 import com.kg.yazzbozz.data.local.YazbozDatabase
 import com.kg.yazzbozz.data.local.buildYazbozDatabase
+import com.kg.yazzbozz.domain.FinishKind
 import com.kg.yazzbozz.domain.GameRecord
 import com.kg.yazzbozz.domain.Hand
 import com.kg.yazzbozz.domain.Penalty
 import com.kg.yazzbozz.domain.PlayerName
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -49,7 +51,13 @@ class GameRepositoryTest {
 
     private val played = started.copy(
         hands = listOf(
-            Hand(scoreTeam1 = 0, scoreTeam2 = 87, finisherSeat = 1, openerSeats = persistentListOf(1, 2)),
+            Hand(
+                scoreTeam1 = 0,
+                scoreTeam2 = 87,
+                finisherSeat = 1,
+                openerSeats = persistentListOf(1, 2),
+                finishKinds = persistentSetOf(FinishKind.Elden, FinishKind.Okey),
+            ),
             Hand(scoreTeam1 = 132, scoreTeam2 = 0, finisherSeat = null, openerSeats = persistentListOf()),
         ),
         penalties = listOf(Penalty(team = 2, value = 100), Penalty(team = 1, value = 55, label = "Okey atma")),
